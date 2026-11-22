@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CSharpX Target Manifest (draft)",
+  "type": "object",
+  "required": [
+    "name",
+    "architecture",
+    "features"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "architecture": {
+      "type": "string"
+    },
+    "rustTarget": {
+      "type": "string"
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "memory": {
+      "type": "object"
+    }
+  }
+}

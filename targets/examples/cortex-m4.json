@@ -1,0 +1,21 @@
+{
+  "name": "generic-cortex-m4-example",
+  "architecture": "arm",
+  "rustTarget": "thumbv7em-none-eabihf",
+  "features": {
+    "std": false,
+    "heap": false,
+    "interrupts": true,
+    "multicore": false
+  },
+  "memory": {
+    "flash": {
+      "origin": "0x08000000",
+      "size": 524288
+    },
+    "ram": {
+      "origin": "0x20000000",
+      "size": 131072
+    }
+  }
+}

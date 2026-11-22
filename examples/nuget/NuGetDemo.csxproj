@@ -1,0 +1,11 @@
+<Project Sdk="CSharpX.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- Existing managed DLL: <Reference Include="MyLib"><HintPath>lib\MyLib.dll</HintPath></Reference> -->
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CSharpXCompiler Condition="'$(CSharpXCompiler)' == ''">csxc</CSharpXCompiler>
+    <CSharpXInput Condition="'$(CSharpXInput)' == ''">$(MSBuildProjectDirectory)\Program.csx</CSharpXInput>
+  </PropertyGroup>
+  <Target Name="CSharpXCheck" BeforeTargets="Build">
+    <Error Condition="!Exists('$(CSharpXInput)')" Text="CSharpX source not found: $(CSharpXInput)" />
+    <Exec Command="&quot;$(CSharpXCompiler)&quot; check &quot;$(CSharpXInput)&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+  <Target Name="CSharpXNativeBuild" DependsOnTargets="CSharpXCheck">
+    <Exec Command="&quot;$(CSharpXCompiler)&quot; build &quot;$(CSharpXInput)&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+</Project>

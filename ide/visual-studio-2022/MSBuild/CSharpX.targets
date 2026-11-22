@@ -1,0 +1,9 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CSharpXCompiler Condition="'$(CSharpXCompiler)' == ''">csxc</CSharpXCompiler>
+  </PropertyGroup>
+  <Target Name="CSharpXCheck" BeforeTargets="Build" Condition="'@(CSharpXCompile)' != ''">
+    <Exec Command="&quot;$(CSharpXCompiler)&quot; check &quot;%(CSharpXCompile.FullPath)&quot;" />
+  </Target>
+  <!-- This is per-file subset validation, NOT a production multi-file build target. -->
+</Project>

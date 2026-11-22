@@ -1,0 +1,7 @@
+{
+  "CSX1001": "Main method not found",
+  "CSX1006": "Unsupported statement in prototype",
+  "CSX1008": "Unsupported WriteLine argument",
+  "CSX3007": "Unsafe operation requires explicit unsafe context (planned)",
+  "CSX5001": "Forbidden effect in restricted scope (planned)"
+}

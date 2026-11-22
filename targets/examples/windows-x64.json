@@ -1,0 +1,11 @@
+{
+  "name": "windows-x64",
+  "architecture": "x86_64",
+  "rustTarget": "x86_64-pc-windows-msvc",
+  "features": {
+    "std": true,
+    "heap": true,
+    "interrupts": false
+  },
+  "status": "descriptor-only"
+}

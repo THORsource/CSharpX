@@ -1,0 +1,3 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><CSharpXLanguageVersion>0.1</CSharpXLanguageVersion></PropertyGroup>
+</Project>

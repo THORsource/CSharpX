@@ -1,0 +1,7 @@
+<Project Sdk="CSharpX.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetPlatform>Desktop</TargetPlatform>
+  </PropertyGroup>
+  <ItemGroup><CSharpXCompile Include="Program.csx" /></ItemGroup>
+</Project>

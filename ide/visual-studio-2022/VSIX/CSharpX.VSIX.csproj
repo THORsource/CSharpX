@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <UseCodebase>true</UseCodebase>
+    <IsVsixProject>true</IsVsixProject>
+    <RootNamespace>CSharpX.VisualStudio</RootNamespace>
+    <AssemblyName>CSharpX.VisualStudio</AssemblyName>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Client" Version="17.0.0" />
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.0.32112.339" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.0.5232" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="source.extension.vsixmanifest"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+    <VSIXSourceItem Include="Templates\CSharpXConsole.zip" />
+    <Content Include="semantic.py"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><IncludeInVSIX>true</IncludeInVSIX></Content>
+    <Content Include="server.py"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><IncludeInVSIX>true</IncludeInVSIX></Content>
+  </ItemGroup>
+</Project>

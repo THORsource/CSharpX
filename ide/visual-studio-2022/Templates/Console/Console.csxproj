@@ -1,0 +1,4 @@
+<Project Sdk="CSharpX.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><CSharpXCompile Include="Program.csx" /></ItemGroup>
+</Project>

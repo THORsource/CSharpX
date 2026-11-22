@@ -1,0 +1,7 @@
+{
+  "name": "aurix-tc4x",
+  "architecture": "tricore",
+  "rustTarget": null,
+  "toolchain": "external-required",
+  "status": "descriptor-only; no compiler backend"
+}

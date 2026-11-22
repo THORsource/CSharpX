@@ -1,0 +1,9 @@
+# CSharpX language AI entrypoint
+
+CSharpX is a distinct C#-like language. Do not generate Rust code or Rust idioms in CSharpX source.
+
+Read docs/IMPLEMENTATION-STATUS.md before suggesting executable examples.
+Current executable subset grammar: docs/spec/07-grammar-ebnf.md.
+Design-only semantics: docs/spec/01-language.md, 02-memory-and-safety.md, 03-exceptions.md, 04-native-interop.md, 05-embedded.md, 08-ffi-contracts.md, 09-exception-contracts.md.
+Validate supported code using `csxc check <file.csx>` and `csxc build <file.csx>`.
+Never assume a documented design feature is already implemented.

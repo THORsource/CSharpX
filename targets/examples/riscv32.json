@@ -1,0 +1,11 @@
+{
+  "name": "generic-riscv32",
+  "architecture": "riscv32",
+  "rustTarget": "riscv32imac-unknown-none-elf",
+  "features": {
+    "std": false,
+    "heap": false,
+    "interrupts": true
+  },
+  "status": "descriptor-only"
+}

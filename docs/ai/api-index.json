@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "0.1-draft",
+  "implemented": [
+    {
+      "symbol": "Console.WriteLine",
+      "overloads": [
+        "WriteLine(string literal)",
+        "WriteLine(unsigned integer literal)"
+      ],
+      "context": "Main only"
+    }
+  ],
+  "planned": [
+    {
+      "symbol": "System.Hardware.GpioPin",
+      "status": "not implemented"
+    },
+    {
+      "symbol": "System.Native.NativeImportAttribute",
+      "status": "not implemented"
+    },
+    {
+      "symbol": "System.Exception",
+      "status": "not implemented"
+    }
+  ]
+}
