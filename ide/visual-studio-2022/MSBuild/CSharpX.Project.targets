@@ -1,0 +1,83 @@
+<Project>
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <AssemblyName Condition="'$(AssemblyName)' == ''">$(MSBuildProjectName)</AssemblyName>
+    <OutputType Condition="'$(OutputType)' == ''">Exe</OutputType>
+
+    <CSharpXHostOs Condition="'$(OS)' == 'Windows_NT'">Windows</CSharpXHostOs>
+    <CSharpXHostOs Condition="$([MSBuild]::IsOSPlatform('OSX'))">macOS</CSharpXHostOs>
+    <CSharpXHostOs Condition="'$(CSharpXHostOs)' == ''">Linux</CSharpXHostOs>
+    <CSharpXTargetOs Condition="'$(CSharpXTargetOs)' == ''">$(CSharpXHostOs)</CSharpXTargetOs>
+    <CSharpXTargetTriple Condition="'$(CSharpXTargetOs)' == 'Windows'">x86_64-pc-windows-msvc</CSharpXTargetTriple>
+    <CSharpXTargetTriple Condition="'$(CSharpXTargetOs)' == 'Linux'">x86_64-unknown-linux-gnu</CSharpXTargetTriple>
+    <CSharpXTargetTriple Condition="'$(CSharpXTargetOs)' == 'macOS'">x86_64-apple-darwin</CSharpXTargetTriple>
+    <CSharpXTargetArgument> --target $(CSharpXTargetTriple)</CSharpXTargetArgument>
+    <CSharpXLinkerArgument Condition="'$(CSharpXLinker)' != ''"> --linker &quot;$(CSharpXLinker)&quot;</CSharpXLinkerArgument>
+    <CSharpXCrossDirectory Condition="'$(CSharpXTargetOs)' != '$(CSharpXHostOs)'">$(CSharpXTargetOs)\</CSharpXCrossDirectory>
+
+    <DebuggerFlavor Condition="'$(DebuggerFlavor)' == '' And '$(CSharpXTargetOs)' == 'Windows' And '$(CSharpXHostOs)' == 'Windows' And '$(OutputType)' == 'Exe'">CSharpXDebugger</DebuggerFlavor>
+    <OutputPath Condition="'$(OutputPath)' == ''">bin\$(Configuration)\$(CSharpXCrossDirectory)</OutputPath>
+    <IntermediateOutputPath Condition="'$(IntermediateOutputPath)' == ''">obj\$(Configuration)\$(CSharpXCrossDirectory)</IntermediateOutputPath>
+    <CSharpXCompilerExt Condition="'$(OS)' == 'Windows_NT'">.exe</CSharpXCompilerExt>
+    <TargetExt Condition="'$(OutputType)' == 'Exe' And '$(CSharpXTargetOs)' == 'Windows'">.exe</TargetExt>
+    <TargetExt Condition="'$(OutputType)' == 'Library' And '$(CSharpXTargetOs)' == 'Windows'">.dll</TargetExt>
+    <TargetExt Condition="'$(OutputType)' == 'Library' And '$(CSharpXTargetOs)' == 'Linux'">.so</TargetExt>
+    <TargetExt Condition="'$(OutputType)' == 'Library' And '$(CSharpXTargetOs)' == 'macOS'">.dylib</TargetExt>
+    <CSharpXLibraryPrefix Condition="'$(OutputType)' == 'Library' And '$(CSharpXTargetOs)' != 'Windows'">lib</CSharpXLibraryPrefix>
+    <CSharpXLibraryArgument Condition="'$(OutputType)' == 'Library'"> --library</CSharpXLibraryArgument>
+    <TargetPath>$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), $(OutputPath), $(CSharpXLibraryPrefix)$(AssemblyName)$(TargetExt)))</TargetPath>
+    <CSharpXRepository>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\'))</CSharpXRepository>
+    <CSharpXCompiler Condition="'$(CSharpXCompiler)' == ''">$(CSharpXRepository)target\release\csxc$(CSharpXCompilerExt)</CSharpXCompiler>
+    <CSharpXGeneratedRust>$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), $(IntermediateOutputPath), 'main.rs'))</CSharpXGeneratedRust>
+    <CSharpXDebugSymbols Condition="'$(CSharpXDebugSymbols)' == '' And '$(Configuration)' == 'Debug'">true</CSharpXDebugSymbols>
+    <CSharpXDebugArgument Condition="'$(CSharpXDebugSymbols)' == 'true'"> --debug</CSharpXDebugArgument>
+    <CSharpXSourceList>$(IntermediateOutputPath)csharpx-sources.txt</CSharpXSourceList>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectCapability Include="CSharpX;ProjectConfigurationsDeclaredAsItems;OpenProjectFile" />
+    <ProjectConfiguration Include="Debug|AnyCPU">
+      <Configuration>Debug</Configuration>
+      <Platform>AnyCPU</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|AnyCPU">
+      <Configuration>Release</Configuration>
+      <Platform>AnyCPU</Platform>
+    </ProjectConfiguration>
+    <PropertyPageSchema Include="$(MSBuildThisFileDirectory)CSharpX.ProjectItems.xaml">
+      <Context>Project</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(MSBuildThisFileDirectory)CSharpX.SourceFile.xaml">
+      <Context>File</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(MSBuildThisFileDirectory)CSharpX.Debugger.xaml" Condition="'$(CSharpXTargetOs)' == 'Windows' And '$(CSharpXHostOs)' == 'Windows' And '$(OutputType)' == 'Exe'">
+      <Context>Project</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(MSBuildThisFileDirectory)CSharpX.ProjectSettings.xaml">
+      <Context>Project</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(MSBuildThisFileDirectory)CSharpX.BrowseObject.xaml">
+      <Context>BrowseObject</Context>
+    </PropertyPageSchema>
+  </ItemGroup>
+  <Target Name="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Code="CSX9014" Condition="'$(CSharpXTargetTriple)' == ''" Text="Unknown target OS $(CSharpXTargetOs). Choose Windows, Linux, or macOS." />
+    <Error Code="CSX9010" Condition="('$(OutputType)' != 'Exe' And '$(OutputType)' != 'Library') Or ('$(TargetPlatform)' != '' And '$(TargetPlatform)' != 'Desktop')" Text="CSharpX project build supports desktop applications and dynamic libraries." />
+    <Error Code="CSX9011" Condition="'@(PackageReference);@(Reference);@(ProjectReference)' != ';;'" Text="CSharpX project build does not support managed or project references yet." />
+    <Error Code="CSX9005" Condition="'@(CSharpXCompile)' == ''" Text="Add at least one CSharpXCompile item." />
+    <Error Code="CSX9012" Condition="!Exists('$(CSharpXCompiler)')" Text="CSharpX compiler not found at $(CSharpXCompiler). Build the compiler first or set CSharpXCompiler to its full path." />
+    <MakeDir Directories="$(IntermediateOutputPath);$(OutputPath)" />
+    <WriteLinesToFile File="$(CSharpXSourceList)" Lines="@(CSharpXCompile->'%(FullPath)')" Overwrite="true" Encoding="UTF-8" />
+    <Exec Command="&quot;$(CSharpXCompiler)&quot; build-project &quot;$(CSharpXSourceList)&quot; &quot;$(CSharpXGeneratedRust)&quot; &quot;$(TargetPath)&quot;$(CSharpXDebugArgument)$(CSharpXTargetArgument)$(CSharpXLinkerArgument)$(CSharpXLibraryArgument)" WorkingDirectory="$(MSBuildProjectDirectory)"
+          EchoOff="true"
+          ConsoleToMSBuild="true" StandardOutputImportance="Low" StandardErrorImportance="Low">
+      <Output TaskParameter="ConsoleOutput" ItemName="CSharpXBuildOutput" />
+    </Exec>
+    <Message Importance="High" Text="@(CSharpXBuildOutput, '%0A')" />
+  </Target>
+  <Target Name="Clean">
+    <Delete Files="$(CSharpXGeneratedRust);$(CSharpXSourceList);$(TargetPath);$(TargetPath).lib;$(TargetPath).exp;$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.pdb'))" />
+  </Target>
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
+  <Target Name="GetTargetPath" Returns="$(TargetPath)" />
+</Project>

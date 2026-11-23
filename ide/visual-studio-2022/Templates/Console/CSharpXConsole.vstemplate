@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSTemplate Version="3.0.0" Type="Project" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005">
+  <TemplateData>
+    <Name>CSharpX Console</Name>
+    <Description>Creates a native CSharpX desktop console project.</Description>
+    <ProjectType>CSharpX</ProjectType>
+    <DefaultName>CSharpXConsole</DefaultName>
+    <CreateNewFolder>true</CreateNewFolder>
+  </TemplateData>
+  <TemplateContent>
+    <Project File="Console.csxproj" ReplaceParameters="false">
+      <ProjectItem>Program.csx</ProjectItem>
+      <ProjectItem>CSharpX.Project.targets</ProjectItem>
+      <ProjectItem>CSharpX.BrowseObject.xaml</ProjectItem>
+      <ProjectItem>CSharpX.ProjectSettings.xaml</ProjectItem>
+      <ProjectItem>CSharpX.ProjectItems.xaml</ProjectItem>
+      <ProjectItem>CSharpX.SourceFile.xaml</ProjectItem>
+      <ProjectItem>CSharpX.Debugger.xaml</ProjectItem>
+    </Project>
+  </TemplateContent>
+</VSTemplate>

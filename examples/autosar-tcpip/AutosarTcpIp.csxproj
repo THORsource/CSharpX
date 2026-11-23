@@ -1,0 +1,14 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>33e5b02d-1848-dd0c-2f88-99e51d5657f3</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetPlatform>Desktop</TargetPlatform>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx" />
+    <None Include="tcpip_demo.py;README.md" />
+  </ItemGroup>
+  <Import Project="..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+</Project>

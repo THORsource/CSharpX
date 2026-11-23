@@ -1,3 +1,4 @@
+using Microsoft.VisualStudio.Language.StandardClassification;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;

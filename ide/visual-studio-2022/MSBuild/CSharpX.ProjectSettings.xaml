@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Rule Name="CSharpXProjectSettings" DisplayName="CSharpX" PageTemplate="generic"
+      xmlns="http://schemas.microsoft.com/build/2009/properties">
+  <Rule.Categories>
+    <Category Name="Target" DisplayName="Buildziel" />
+    <Category Name="Output" DisplayName="Ausgabe" />
+  </Rule.Categories>
+  <Rule.DataSource>
+    <DataSource Persistence="ProjectFile" Label="Configuration" HasConfigurationCondition="False" />
+  </Rule.DataSource>
+  <EnumProperty Name="CSharpXTargetOs" DisplayName="Ziel-Betriebssystem" Category="Target"
+                Description="Betriebssystem des erzeugten x64-Programms oder der Bibliothek.">
+    <EnumValue Name="Windows" DisplayName="Windows (x64)" />
+    <EnumValue Name="Linux" DisplayName="Linux (x64)" />
+    <EnumValue Name="macOS" DisplayName="macOS (x64)" />
+  </EnumProperty>
+  <StringProperty Name="CSharpXLinker" DisplayName="Linker" Category="Target"
+                  Description="Optionaler Pfad zu einem Linker für das ausgewählte Ziel." />
+  <EnumProperty Name="OutputType" DisplayName="Ausgabetyp" Category="Output"
+                Description="Anwendung mit Startpunkt oder native dynamische Bibliothek.">
+    <EnumValue Name="Exe" DisplayName="Anwendung (EXE / Programm)" />
+    <EnumValue Name="Library" DisplayName="Bibliothek (DLL / SO / DYLIB)" />
+  </EnumProperty>
+  <StringProperty Name="AssemblyName" DisplayName="Dateiname ohne Erweiterung" Category="Output" />
+</Rule>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Rule Name="CSharpXBrowseObject" DisplayName="CSharpX" PageTemplate="generic"
+      xmlns="http://schemas.microsoft.com/build/2009/properties">
+  <Rule.DataSource>
+    <DataSource Persistence="ProjectFile" Label="Configuration" HasConfigurationCondition="False" />
+  </Rule.DataSource>
+  <EnumProperty Name="CSharpXTargetOs" ReadOnly="True" DisplayName="Ziel-Betriebssystem"
+                Description="Betriebssystem des erzeugten x64-Programms.">
+    <EnumValue Name="Windows" DisplayName="Windows (x64)" />
+    <EnumValue Name="Linux" DisplayName="Linux (x64)" />
+    <EnumValue Name="macOS" DisplayName="macOS (x64)" />
+  </EnumProperty>
+  <StringProperty Name="AssemblyName" DisplayName="Programmname" />
+  <StringProperty Name="OutputType" DisplayName="Ausgabetyp" ReadOnly="True" />
+</Rule>

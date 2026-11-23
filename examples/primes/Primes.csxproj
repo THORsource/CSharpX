@@ -1,0 +1,13 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>ab7436dc-ce62-4f4b-91af-410cd63ccb91</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetPlatform>Desktop</TargetPlatform>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx" />
+  </ItemGroup>
+  <Import Project="..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+</Project>

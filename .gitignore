@@ -1,0 +1,8 @@
+target/
+bin/
+obj/
+.vs/
+__pycache__/
+*.pyc
+/csx-out/
+/examples/primes/benchmark/build/

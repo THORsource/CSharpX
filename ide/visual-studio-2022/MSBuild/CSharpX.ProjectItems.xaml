@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProjectSchemaDefinitions xmlns="http://schemas.microsoft.com/build/2009/properties">
+  <ContentType Name="CSharpXSource" DisplayName="CSharpX source file" ItemType="CSharpXCompile" />
+  <ItemType Name="CSharpXCompile" DisplayName="CSharpX source file" />
+  <FileExtension Name=".csx" ContentType="CSharpXSource" />
+</ProjectSchemaDefinitions>

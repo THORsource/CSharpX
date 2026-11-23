@@ -1,4 +1,10 @@
-<Project Sdk="CSharpX.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
-  <ItemGroup><CSharpXCompile Include="Program.csx" /></ItemGroup>
+<Project DefaultTargets="Build">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetPlatform>Desktop</TargetPlatform>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx" />
+  </ItemGroup>
+  <Import Project="CSharpX.Project.targets" />
 </Project>

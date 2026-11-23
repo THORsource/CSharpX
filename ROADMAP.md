@@ -1,20 +1,10 @@
-# CSharpX implementation roadmap
+# Prioritäten und Codex-Aufgaben
 
-## Delivered in expanded prototype
-- Single-file tokenizer, parser, expression lowering, basic static types, string exceptions, safe Rust emission.
-- Extended semantic/FFI/exception specifications, target descriptors and VSIX project scaffold.
-
-## Required for a real compiler
-1. Source spans and structured diagnostics; full lexer/grammar and semantic model.
-2. Multi-file namespaces, classes, inheritance, interfaces, virtual dispatch and generics.
-3. Ownership/escape/effect analysis; managed object model and cycle collector.
-4. Complete C# exception semantics, async, debug/source mappings.
-5. Clang-based C/C++ bindings, ABI validation, native build/link orchestration.
-6. Real target backends and embedded HAL/startup/linker/debug integration.
-7. LSP server, VSIX packaging, CPS/MSBuild, debugging and project templates.
-8. Conformance suites, fuzzing, security audits, CI and documentation generation.
-
-Do not claim these roadmap items are implemented.
-
-## Increment: inheritance and ownership prototype
-Implemented: single inheritance for integer-literal-returning methods, virtual override dispatch, simple upcasts, static local aliases, Box/Rc classification and an ownership report. Next: fields and constructors, flow-sensitive SSA alias/escape analysis, safe object graph representation, cycle collection, integration with exceptions and full parser.
+| Priorität | Aufgabe | Abnahme |
+|---|---|---|
+| P0 | Ausgangslage reproduzieren. Werkzeugversionen erfassen, Rustup-Blocker eingrenzen, Windows-Smokes und Python-Tests aus BUILD-TEST.md ausführen. Danach gegebenenfalls ersten kleinen Build- oder Testfehler im Repository beheben. | Exitcodes und Soll-/Istausgaben sind dokumentiert. Sind Werkzeuge unzugänglich, enthält der Status den genauen Blocker und die Ergebnisse aller unabhängigen Checks. |
+| P1 | Einen Compilerpfad aufbauen. Mit strukturierter Diagnostik und Quellspannen beginnen, dann Klassen- und Ausdrucksparser zusammenführen und mehrdateiige Projekte mit Namespaces, using und Aliasauflösung unterstützen. Interface-/Generic-Semantik schrittweise definieren. | Beide bestehenden Beispiele laufen. Zwei Dateien mit Import binden denselben Typ in CLI und LSP. Ein mehrdeutiger Import liefert eine Diagnose mit Quellposition. |
+| P1 | Bestehende DLLs und NuGet nutzbar machen. Restore und Assets-Auswahl für TFM/RID testen. Dann Metadaten lesen und Symbole importieren. Anschließend einen Desktop-Ausführungspfad auswählen und implementieren. | Offline-Inventar und echter Restore sind reproduzierbar. Ein Fixture mit eigener .NET-DLL und ein fest versioniertes NuGet-Beispiel lösen jeweils einen Typ auf und führen einen Methodenaufruf mit geprüfter Ausgabe aus. Fehlende oder inkompatible Assembly liefert eine Diagnose. |
+| P2 | Ownership und typisierte Exceptions ausbauen. Felder, Konstruktoren und Escape-Analyse vor Cycle Collector implementieren. C#-ähnliche Catch-Auswahl und Finally-Regeln als Konformitätstests festhalten. | Testfälle für exklusive, geteilte und zyklische Objektgraphen sowie Ausnahme- und Aufräumpfade. Safe-Code-Ausgabe enthält keine Unsafe-Blöcke. |
+| P2 | Windows-Setup, IDE und Paketierung vervollständigen. Werkzeugversionen statt bloßer Befehlspräsenz prüfen. VSIX und LSP aus gemeinsamer Quelle paketieren, MSBuild-Einstieg konsolidieren, Source-Level-Debugging getrennt nachweisen. | Release-Build und Installation unter VS 2022, danach dokumentierte Prüfung von Completion, F12, Projektbuild und Breakpoint. |
+| P3 | Native Interop und Embedded. Zuerst C-ABI auf einem Desktop-Target, dann C++ über definierte ABI-Grenze und ARM/RISC-V-Bare-Metal-Smokes. AURIX/TriCore mit geeigneter Toolchain separat validieren. | Ein kompilierter und ausgeführter Interop-Smoke und je eingebettetem Ziel ein Link- und Startnachweis auf Emulator oder Hardware. |
