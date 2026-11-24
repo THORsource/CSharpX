@@ -3,6 +3,8 @@
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
     <AssemblyName Condition="'$(AssemblyName)' == ''">$(MSBuildProjectName)</AssemblyName>
+    <CSharpXBundleDotNet Condition="'$(CSharpXBundleDotNet)' == ''">false</CSharpXBundleDotNet>
+    <CSharpXBundleManaged Condition="'$(CSharpXBundleManaged)' == ''">false</CSharpXBundleManaged>
     <OutputType Condition="'$(OutputType)' == ''">Exe</OutputType>
 
     <CSharpXHostOs Condition="'$(OS)' == 'Windows_NT'">Windows</CSharpXHostOs>
@@ -64,11 +66,26 @@
     <Error Code="CSX9014" Condition="'$(CSharpXTargetTriple)' == ''" Text="Unknown target OS $(CSharpXTargetOs). Choose Windows, Linux, or macOS." />
     <Error Code="CSX9010" Condition="('$(OutputType)' != 'Exe' And '$(OutputType)' != 'Library') Or ('$(TargetPlatform)' != '' And '$(TargetPlatform)' != 'Desktop')" Text="CSharpX project build supports desktop applications and dynamic libraries." />
     <Error Code="CSX9011" Condition="'@(PackageReference);@(Reference);@(ProjectReference)' != ';;'" Text="CSharpX project build does not support managed or project references yet." />
-    <Error Code="CSX9005" Condition="'@(CSharpXCompile)' == ''" Text="Add at least one CSharpXCompile item." />
+    <ItemGroup>
+      <_CSharpXRustSource Include="@(CSharpXCompile)" Condition="'%(CSharpXCompile.Extension)' == '.rs'" />
+      <_CSharpXManagedSource Include="@(CSharpXCompile)" Condition="'%(CSharpXCompile.Extension)' == '.cs'" />
+      <_CSharpXSource Include="@(CSharpXCompile)" Condition="'%(CSharpXCompile.Extension)' != '.c' And '%(CSharpXCompile.Extension)' != '.h' And '%(CSharpXCompile.Extension)' != '.cs' And '%(CSharpXCompile.Extension)' != '.rs'" />
+    </ItemGroup>
+    <Error Code="CSX9005" Condition="'@(_CSharpXSource)' == ''" Text="Add at least one CSharpX source file." />
     <Error Code="CSX9012" Condition="!Exists('$(CSharpXCompiler)')" Text="CSharpX compiler not found at $(CSharpXCompiler). Build the compiler first or set CSharpXCompiler to its full path." />
     <MakeDir Directories="$(IntermediateOutputPath);$(OutputPath)" />
-    <WriteLinesToFile File="$(CSharpXSourceList)" Lines="@(CSharpXCompile->'%(FullPath)')" Overwrite="true" Encoding="UTF-8" />
-    <Exec Command="&quot;$(CSharpXCompiler)&quot; build-project &quot;$(CSharpXSourceList)&quot; &quot;$(CSharpXGeneratedRust)&quot; &quot;$(TargetPath)&quot;$(CSharpXDebugArgument)$(CSharpXTargetArgument)$(CSharpXLinkerArgument)$(CSharpXLibraryArgument)" WorkingDirectory="$(MSBuildProjectDirectory)"
+    <WriteLinesToFile File="$(CSharpXSourceList)" Lines="@(_CSharpXSource->'%(FullPath)')" Overwrite="true" Encoding="UTF-8" />
+    <PropertyGroup>
+      <CSharpXTrustedCFileArgument Condition="'$(CSharpXTrustedCFileDirectory)' != ''"> --trusted-c-file &quot;$(CSharpXTrustedCFileDirectory)&quot;</CSharpXTrustedCFileArgument>
+      <CSharpXBundleDotNetArgument Condition="'$(CSharpXBundleDotNet)' == 'true'"> --bundle-dotnet</CSharpXBundleDotNetArgument>
+      <CSharpXBundleManagedArgument Condition="'$(CSharpXBundleManaged)' == 'true'"> --bundle-managed</CSharpXBundleManagedArgument>
+      <CSharpXStartupArgument Condition="'$(StartupObject)' != ''"> --startup-object &quot;$(StartupObject)&quot;</CSharpXStartupArgument>
+      <CSharpXRustSourceArguments>@(_CSharpXRustSource->' --rs-source &quot;%(FullPath)&quot;', ' ')</CSharpXRustSourceArguments>
+      <CSharpXManagedSourceArguments>@(_CSharpXManagedSource->' --cs-source &quot;%(FullPath)&quot;', ' ')</CSharpXManagedSourceArguments>
+      <CSharpXNativeCHeaderArguments>@(CSharpXNativeCHeader->' --c-header &quot;%(FullPath)&quot;', ' ')</CSharpXNativeCHeaderArguments>
+      <CSharpXCHeaderArgument Condition="'$(CSharpXCHeader)' != ''"> --c-header &quot;$(CSharpXCHeader)&quot;</CSharpXCHeaderArgument>
+    </PropertyGroup>
+    <Exec Command="&quot;$(CSharpXCompiler)&quot; build-project &quot;$(CSharpXSourceList)&quot; &quot;$(CSharpXGeneratedRust)&quot; &quot;$(TargetPath)&quot;$(CSharpXDebugArgument)$(CSharpXTargetArgument)$(CSharpXLinkerArgument)$(CSharpXLibraryArgument)$(CSharpXTrustedCFileArgument)$(CSharpXCHeaderArgument)$(CSharpXNativeCHeaderArguments)$(CSharpXManagedSourceArguments)$(CSharpXRustSourceArguments)$(CSharpXBundleManagedArgument)$(CSharpXBundleDotNetArgument)$(CSharpXStartupArgument)" WorkingDirectory="$(MSBuildProjectDirectory)"
           EchoOff="true"
           ConsoleToMSBuild="true" StandardOutputImportance="Low" StandardErrorImportance="Low">
       <Output TaskParameter="ConsoleOutput" ItemName="CSharpXBuildOutput" />

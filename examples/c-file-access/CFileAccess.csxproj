@@ -1,0 +1,15 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>19e51791-c174-4d48-a56d-8ee952c64a6a</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx" />
+    <CSharpXCompile Include="main.c" />
+    <CSharpXCompile Include="c_file_access.h" />
+    <CSharpXCompile Include="extra_file.c" />
+    <CSharpXCompile Include="extra_file.h" />
+    <None Include="build-native.cmd" />
+  </ItemGroup>
+  <Import Project="..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+  <Import Project="CSharpX.NativeFile.targets" />
+</Project>

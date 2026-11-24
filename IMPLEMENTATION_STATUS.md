@@ -39,3 +39,24 @@ Ownership zeigt mehrere generische Parameter und optionale Standardtypen für al
 Build-Diagnosen wurden in Visual Studio und MSBuild geprüft. Windows-Debug-Build und Ausführung gelangen. Eine unbekannte Variable, fehlende Linux-Zielwerkzeuge und ein ungültiger Windows-Linker wurden mit CSX1201, CSX9020 und CSX9021 gemeldet. Das normale Buildprotokoll enthielt keine nativen Compilerbefehle oder Pfade zu generierten Dateien. VSIX 0.2.5 enthält die aktualisierte Ziel- und Ausgabetyp-Einstellungsseite. Alle 20 Compiler-Tests bestanden.
 
 23. November 2026: examples/primes/Primes.csxproj baut den skalaren Benchmark mit Visual Studio 2022 MSBuild. Die optimierte CLI-Version (build-project --optimize) stimmt f?r alle 1.000 Primzahlen und die Pr?fsumme mit C, C# und Rust ?berein. Der Messlauf pr?ft alle Ausgaben gegen ein Sieb. Skalare Compilerfehler tragen Quellpfad, Zeile und Spalte im MSBuild-Format. Ein unbekannter Bezeichner und ein Schleifenabbruch au?erhalb einer Schleife dienten als Negativf?lle.
+
+23. November 2026: CFileAccess.csxproj baut unter Windows x64 eine statische C-Bibliothek. CSharpX ruft deren feste ABI über CFile.RoundTrip auf. Datei und zurückgegebener Text wurden verglichen. Eine bestehende Datei blieb unverändert, falsche Argumenttypen und Builds ohne explizite Freigabe der Bibliothek wurden abgewiesen. Der allgemeine C-Headerimport bleibt offen.
+
+Der Windows-x64-Dateibridge-Build übernimmt C-Symbolnamen aus dem angegebenen Header für die unterstützte Dateisignatur. Das Beispiel verwendet den Originalnamen ohne manuelle Zuordnung. Der Import eines umbenannten Symbols und die Ablehnung eines unbekannten Namens wurden geprüft.
+Der Windows-x64-Debug-Build des Dateibeispiels verarbeitet zwei C-Quelldateien und zwei Header. Beide CSharpX-Aufrufe erzeugten die erwartete Datei. Ohne den zweiten Header wurde der zweite Name mit CSX1706 abgewiesen.
+
+Das skalare Dateibeispiel verlangt usage-Direktiven vor Main. Der Windows-x64-Debug-Build und beide nativen Aufrufe liefen erfolgreich. Der Build wies einen Aufruf ohne usage, den Aufruf aus einem nicht ausgewählten Header und einen unbekannten Headernamen ab.
+Das skalare Dateibeispiel wurde unter Windows x64 mit einem globalen Header und einem Headeralias gebaut und ausgeführt. Der Build akzeptierte AS und as und wies falsche Zuordnungen sowie doppelte Aliase ab.
+
+23. November 2026: CsUsage.csxproj importiert C#-Quelldateien per usage und AS. Der Windows-x64-Debug-Build mit .NET SDK 9.0.302 und der UTF-8-Rundlauf waren erfolgreich. Falsche Aliaszuordnungen, ein unbekannter Dateiname und fehlendes usage wurden abgewiesen. Ein gemischter Build mit C- und C#-Importen lief erfolgreich. 21 Compiler-Tests bestanden.
+
+Die MSBuild-Eigenschaften für Einzeldatei und optionalen .NET-Einschluss wurden unter Windows x64 geprüft. Neben der herkömmlichen EXE liefen jeweils eine einzeln kopierte EXE und DLL mit und ohne eingebettete Laufzeit. Die Varianten mit eingebetteter Laufzeit liefen mit PATH ohne dotnet. Die DLL wurde über csx_run aufgerufen.
+MixedInterop.csxproj wurde unter Windows x64 über Visual Studio 2022 MSBuild gebaut und ausgeführt. Die C-Funktion schrieb und las zwei Zeilen. Der C#-Aufruf aus derselben CSX-Datei zählte diese korrekt. Der bestehende C-Build mit zwei Quellen wurde erneut erfolgreich gebaut.
+VSIX 0.2.6 wurde paketiert. Der Editor-Tokenizer wurde für Dateiimporte, Aliase, Aufrufe, Kommentare, Literale, Interpolation und unvollständige Eingaben geprüft. Die visuelle Prüfung im installierten Visual-Studio-Editor steht noch aus.
+Alle drei Interop-Projekte wurden unter Windows x64 neu gebaut und ausgeführt. Aufrufe außerhalb eines unsafe-Blocks, nach Blockende und in String-Interpolation außerhalb eines Blocks wurden mit CSX1709 abgewiesen.
+Pointers.csxproj wurde mit Visual Studio 2022 MSBuild unter Windows x64 gebaut und gab 10, 42 und True aus. Acht Negativfälle und das Backend-Verbot für sicheren Code wurden geprüft.
+RustUsage.csxproj wurde unter Windows x64 gebaut und ausgeführt. Es verwendet einen direkten und einen qualifizierten Rust-Aufruf sowie dieselbe unsafe-Prüfung wie C- und C#-Importe.
+
+SharedClasses.csxproj wurde mit Visual Studio 2022 MSBuild für Program und AlternateProgram gebaut und ausgeführt. Geprüft wurden fehlende und unbekannte Startobjekte, Klassen ohne Main, doppelte Klassen, unbekannte Basisklassen, nicht geschlossene Blöcke und ungültige Zeichen. Laufzeittests prüften catch, finally und die Weitergabe unbehandelter Fehler.
+
+Tuples.csxproj wurde mit Visual Studio 2022 MSBuild gebaut und unter Windows x64 ausgeführt. Ausgaben waren (42, kPa), 42 kPa, kPa und True. Der Installationsassistent wurde mit CheckOnly und BuildOnly geprüft. Compiler und VSIX wurden gebaut. Die Systeminstallation wurde hierbei nicht ausgeführt.

@@ -120,7 +120,7 @@ pub(super) fn scan(first: char, input: &mut SourceChars<'_>) -> Result<Tok, Stri
     Err("CSX1005: unterminated string".into())
 }
 
-pub(super) fn parse(parts: Vec<LiteralPart>, position: Position) -> Result<Expr, String> {
+pub(super) fn parse(parts: Vec<LiteralPart>, position: Position, c_headers: &[super::CHeaderUsage], in_unsafe: bool) -> Result<Expr, String> {
     let mut segments = Vec::new();
     for part in parts {
         segments.push(match part {
@@ -130,6 +130,8 @@ pub(super) fn parse(parts: Vec<LiteralPart>, position: Position) -> Result<Expr,
                     .map_err(|error| position.annotate(split_position(&error).1))?;
                 let lines = vec![position; tokens.len()];
                 let mut parser = Parser::new(tokens, lines);
+                parser.c_headers = c_headers.to_owned();
+                parser.in_unsafe = in_unsafe;
                 let expression = parser.expr(0)?;
                 if parser.peek() != &Tok::Eof {
                     return Err("CSX1703: expected a single expression inside interpolation".into());

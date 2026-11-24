@@ -1,19 +1,17 @@
-# Windows / Visual Studio 2022 build
+# CSharpX unter Windows installieren
 
-Run from an **administrator terminal** when installing Visual Studio workloads:
+Doppelklicke im Repository auf **Install-CSharpX.bat**. Der Assistent führt dich in drei Schritten durch die Installation.
 
-1. `Setup-SDK.bat` – installs missing .NET 8 SDK, Python 3.12 and Rustup using winget; checks VS 2022 and adds the Visual Studio extension development workload if absent.
-2. Close and reopen the terminal (and restart Windows if requested).
-3. `Build-All.bat` – builds the Rust compiler and VSIX in Release mode.
-4. `Install-VSIX.bat` – installs the built extension into Visual Studio 2022.
+1. **Voraussetzungen prüfen.** Der Assistent zeigt, welche Werkzeuge verfügbar sind. Bestätige mit **J**, wenn er fehlende Werkzeuge installieren soll. Er prüft das .NET-9-SDK, Python 3, Rust und Cargo sowie Visual Studio 2022 mit C++-Buildtools und dem .NET-Framework-4.7.2-Targeting-Pack.
+2. **CSharpX bauen.** Der Assistent baut den Compiler und die Visual-Studio-Erweiterung. Beim ersten Build kann der NuGet-Restore eine Internetverbindung benötigen. Der Compiler bleibt unter target\release\csxc.exe im Repository.
+3. **Erweiterung installieren.** Bestätige erneut mit **J**. Schließe Visual Studio, falls es noch geöffnet ist, und folge dem VSIX-Installationsdialog.
 
-Individual steps: `Build-Compiler.bat`, `Build-VSIX.bat`.
+Öffne anschließend in Visual Studio **Datei → Öffnen → Projekt/Projektmappe** und wähle examples\hello\Hello.csxproj. Baue das Projekt und starte es mit F5. Das Hello-Beispiel wartet auf Eingaben per Enter.
 
-## Caveats
-- `Setup-SDK.bat` does **not** silently install the Visual Studio IDE; it requires an existing VS 2022 installation and adds its missing extension-development workload. Install VS 2022 first if necessary.
-- The installer may require administrator privileges, network access and a reboot. `winget` may return a failure if an installer is blocked by enterprise policy.
-- The .NET 8 SDK is **not** the same as the .NET Framework 4.7.2 targeting pack used by the VSIX project. The Visual Studio workload and NuGet restore must supply its build prerequisites. If MSBuild reports missing .NET Framework reference assemblies, add the 4.7.2 targeting pack via Visual Studio Installer.
-- The language server runs Python and requires `python` on PATH (or `CSHARPX_LSP_PYTHON`).
-- VSIX is a prototype and has not been built or tested on Windows in this environment. Source/API compatibility issues may remain.
-- Native CSharpX `.csxproj` projects are not yet fully supported by the VS project system.
-- These scripts do not install the CSharpX compiler globally. The compiler executable remains under `target\release`.
+## Einzelne Schritte und Fehlerbehebung
+
+- Install-CSharpX.bat -CheckOnly prüft die Voraussetzungen ohne Installation und Build.
+- Install-CSharpX.bat -BuildOnly prüft und baut den Compiler sowie die VSIX ohne Installation.
+- Setup-SDK.bat, Build-All.bat und Install-VSIX.bat führen die Schritte einzeln aus.
+- Fehlende Pakete installiert der Assistent nach Bestätigung über winget. Falls winget fehlt, installiere den Microsoft App Installer oder die angezeigten Voraussetzungen manuell. Visual Studio Installer kann Administratorrechte verlangen. Nach einem angeforderten Neustart führe den Assistenten erneut aus.
+- Die VSIX liegt unter ide\visual-studio-2022\VSIX\bin\Release\net472. Halte den Projektordner am selben Ort oder passe bei einem eigenen Projekt den Compilerpfad an.

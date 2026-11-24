@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
+mod c_header;
 mod diagnostics;
 mod language;
+mod managed;
+mod managed_bundle;
 mod objects;
 
 use std::{
@@ -22,8 +25,15 @@ struct BuildOptions<'a> {
     debug: bool,
     optimize: bool,
     library: bool,
+    bundle_managed: bool,
+    bundle_dotnet: bool,
     target: Option<&'a str>,
     linker: Option<&'a str>,
+    trusted_c_file: Option<&'a str>,
+    c_headers: Vec<&'a str>,
+    cs_sources: Vec<&'a str>,
+    rust_sources: Vec<&'a str>,
+    startup: Option<&'a str>,
 }
 
 impl<'a> BuildOptions<'a> {
@@ -34,12 +44,29 @@ impl<'a> BuildOptions<'a> {
             match flag.as_str() {
                 "--optimize" if !options.optimize => options.optimize = true,
                 "--debug" if !options.debug => options.debug = true,
+                "--bundle-dotnet" if !options.bundle_dotnet => options.bundle_dotnet = true,
+                "--bundle-managed" if !options.bundle_managed => options.bundle_managed = true,
                 "--library" if !options.library => options.library = true,
-                "--target" | "--linker" => {
-                    let slot = if flag == "--target" {
-                        &mut options.target
-                    } else {
-                        &mut options.linker
+                "--c-header" | "--cs-source" | "--rs-source" => {
+                    let Some((value, remaining)) = args.split_first() else {
+                        return Err(format!("CSX9006: missing value for {flag}"));
+                    };
+                    if value.is_empty() || value.starts_with("--") {
+                        return Err(format!("CSX9006: invalid value for {flag}"));
+                    }
+                    match flag.as_str() {
+                        "--c-header" => options.c_headers.push(value),
+                        "--cs-source" => options.cs_sources.push(value),
+                        _ => options.rust_sources.push(value),
+                    }
+                    args = remaining;
+                }
+                "--target" | "--linker" | "--trusted-c-file" | "--startup-object" => {
+                    let slot = match flag.as_str() {
+                        "--target" => &mut options.target,
+                        "--linker" => &mut options.linker,
+                        "--startup-object" => &mut options.startup,
+                        _ => &mut options.trusted_c_file,
                     };
                     let Some((value, remaining)) = args.split_first() else {
                         return Err(format!("CSX9006: missing value for {flag}"));
@@ -125,16 +152,6 @@ fn build(
     if let Some(linker) = options.linker {
         rustc.arg("-C").arg(format!("linker={linker}"));
     }
-    if options.library {
-        rustc.args([
-            "--crate-type",
-            "dylib",
-            "--cfg",
-            "csharpx_library",
-            "-C",
-            "prefer-dynamic",
-        ]);
-    }
     if options.debug {
         rustc.args(["-C", "debuginfo=2", "-C", "opt-level=0"]);
     } else if options.optimize {
@@ -146,8 +163,51 @@ fn build(
             .arg("--remap-path-prefix");
         rustc.arg(format!("{}={}", source.display(), original.path.display()));
     }
+    let mut input = source.to_path_buf();
+    let mut managed_library = false;
+    let calls_c = rust.contains(language::C_FILE_CALL_PREFIX);
+    if calls_c || rust.contains(language::C_HEADER_USAGE_PREFIX) {
+        let mut bridge = c_header::make_bridge(rust, &options.c_headers, &options.cs_sources, &options.rust_sources)?;
+        if calls_c {
+            if !bridge.managed_calls.is_empty() {
+                if options.library && !options.bundle_managed {
+                    return Err("CSX1801: C# imports in a library require the single-file output option".into());
+                }
+                if options.bundle_dotnet && !options.bundle_managed {
+                    return Err("CSX1803: bundling .NET requires the single-file output option".into());
+                }
+                if options.bundle_dotnet
+                    && (!cfg!(all(windows, target_arch = "x86_64", target_env = "msvc"))
+                        || options.target.is_some_and(|target| target != "x86_64-pc-windows-msvc"))
+                {
+                    return Err("CSX1803: bundled .NET output requires a Windows x64 host and target".into());
+                }
+                let payload = managed::build(source, binary, &bridge.managed_sources, &bridge.managed_calls, options.bundle_managed, options.bundle_dotnet)?;
+                bridge.code.push_str(&payload);
+                managed_library = options.library;
+            }
+            let library = build_usage_bridge(source, options, &bridge)?;
+            rustc.arg("--extern").arg(format!("csx_c_file={}", library.display()));
+        }
+    }
+    if options.library {
+        rustc.args(["--cfg", "csharpx_library"]);
+        if managed_library {
+            rustc.args(["--crate-type", "cdylib"]);
+            input = source.with_file_name("csx_managed_library.rs");
+            let path = std::path::absolute(source).map_err(|error| error.to_string())?;
+            let wrapper = format!(
+                "#[path = {:?}] mod app;\n{}",
+                path.to_string_lossy(),
+                include_str!("managed_library.rs"),
+            );
+            fs::write(&input, wrapper).map_err(|error| error.to_string())?;
+        } else {
+            rustc.args(["--crate-type", "dylib", "-C", "prefer-dynamic"]);
+        }
+    }
     let output = rustc
-        .arg(source)
+        .arg(&input)
         .arg("-o")
         .arg(binary)
         .output()
@@ -160,6 +220,42 @@ fn build(
     }
     println!("Built: {}", binary.display());
     Ok(())
+}
+
+fn build_usage_bridge(source: &Path, options: &BuildOptions<'_>, plan: &c_header::Bridge) -> Result<PathBuf, String> {
+    const TARGET: &str = "x86_64-pc-windows-msvc";
+    let mut compiler = Command::new("rustc");
+    if plan.native {
+        let directory = options.trusted_c_file.ok_or(
+            "CSX1702: C function calls require an explicitly trusted C file library"
+        )?;
+        if !cfg!(all(windows, target_arch = "x86_64", target_env = "msvc"))
+            || options.target.is_some_and(|target| target != TARGET)
+        {
+            return Err("CSX1703: the C file bridge supports Windows x64 MSVC".into());
+        }
+        let native = Path::new(directory);
+        if !native.join("csx_c_file_native.lib").is_file() {
+            return Err("CSX1704: trusted C file library was not found".into());
+        }
+        compiler.arg("-L").arg(format!("native={}", native.display()));
+    }
+    let bridge = source.with_file_name("csx_usage_bridge.rs");
+    let library = source.with_file_name("libcsx_c_file.rlib");
+    fs::write(&bridge, &plan.code)
+        .map_err(|error| format!("CSX1705: could not write usage bridge: {error}"))?;
+    if let Some(target) = options.target {
+        compiler.args(["--target", target]);
+    }
+    let output = compiler
+        .args(["--edition=2021", "--crate-name", "csx_c_file", "--crate-type", "rlib"])
+        .arg(&bridge).arg("-o").arg(&library)
+        .output()
+        .map_err(|_| "CSX1705: could not start the usage bridge build")?;
+    if !output.status.success() {
+        return Err("CSX1705: could not compile the usage bridge.".into());
+    }
+    Ok(library)
 }
 
 fn map_debug_symbols(
@@ -238,7 +334,7 @@ fn build_project(
     let mut original = None;
     let rust = match paths.as_slice() {
         [] => return Err("CSX9005: project has no CSharpX sources".into()),
-        [path] => {
+        [path] if options.startup.is_none() => {
             let source = read_source(path)?;
             if options.maps_pdb() && !uses_object_parser(&source) {
                 let (rust, lines) = language::compile_with_lines(&source)
@@ -253,13 +349,30 @@ fn build_project(
             let mut tokens = Vec::new();
             for path in paths {
                 let source = read_source(path)?;
-                let mut file_tokens = language::lex(&source)
+                let (file_tokens, positions) = language::lex_with_lines(&source)
                     .map_err(|error| diagnostics::visual_studio(path, &error))?;
-                file_tokens.pop(); // Each lexer invocation ends in an EOF token.
-                tokens.extend(file_tokens);
+                let mut blocks = Vec::new();
+                for (token, position) in file_tokens.into_iter().zip(positions) {
+                    match token {
+                        language::Tok::Sym('{') => blocks.push(position),
+                        language::Tok::Sym('}') if blocks.pop().is_none() => {
+                            return Err(diagnostics::visual_studio(path, &position.annotate(
+                                "CSX2110: closing brace has no opening brace in this file",
+                            )));
+                        }
+                        language::Tok::Eof => break,
+                        _ => {}
+                    }
+                    tokens.push(token);
+                }
+                if let Some(position) = blocks.pop() {
+                    return Err(diagnostics::visual_studio(path, &position.annotate(
+                        "CSX2110: block must be closed in the same file",
+                    )));
+                }
             }
             tokens.push(language::Tok::Eof);
-            objects::compile_tokens(tokens)?.0
+            objects::compile_tokens(tokens, options.startup)?.0
         }
     };
     build(&rust, generated, binary, options, original)
@@ -292,7 +405,7 @@ fn run() -> Result<(), String> {
             }
             Ok(())
         }
-        _ => Err("Usage: csxc <check|emit-rust|build|ownership-report> <file.csx>\n       csxc build-project <inputs.txt> <generated.rs> <executable> [--debug] [--optimize] [--target <triple>] [--linker <path>] [--library]".into()),
+        _ => Err("Usage: csxc <check|emit-rust|build|ownership-report> <file.csx>\n       csxc build-project <inputs.txt> <generated.rs> <executable> [--debug] [--optimize] [--target <triple>] [--linker <path>] [--library] [--bundle-managed] [--bundle-dotnet] [--trusted-c-file <directory>] [--c-header <file.h>]... [--cs-source <file.cs>]... [--rs-source <file.rs>]... [--startup-object <class>]".into()),
     }
 }
 

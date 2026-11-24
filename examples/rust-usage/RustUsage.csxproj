@@ -1,0 +1,11 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>8a24b17b-1eaf-4205-9921-7b103cbe3981</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx" />
+    <CSharpXCompile Include="Greeting.rs" Visible="true" />
+    <CSharpXCompile Include="TextTools.rs" Visible="true" />
+  </ItemGroup>
+  <Import Project="..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+</Project>

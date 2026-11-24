@@ -1,0 +1,24 @@
+<Project>
+  <PropertyGroup>
+    <CSharpXNativeFileBuildScript>$(MSBuildThisFileDirectory)build-native.cmd</CSharpXNativeFileBuildScript>
+  </PropertyGroup>
+  <Target Name="BuildNativeFileLibrary" BeforeTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(CSharpXHostOs)' != 'Windows' Or '$(CSharpXTargetOs)' != 'Windows'" Code="CSX1703" Text="The C file bridge supports Windows x64 MSVC." />
+    <PropertyGroup>
+      <CSharpXTrustedCFileDirectory>$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), $(IntermediateOutputPath), 'native'))</CSharpXTrustedCFileDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <CSharpXNativeCSource Include="@(CSharpXCompile)" Condition="'%(CSharpXCompile.Extension)' == '.c'" />
+      <CSharpXNativeCHeader Include="@(CSharpXCompile)" Condition="'%(CSharpXCompile.Extension)' == '.h'" />
+    </ItemGroup>
+    <Error Condition="'@(CSharpXNativeCSource)' == '' Or '@(CSharpXNativeCHeader)' == ''" Code="CSX1704" Text="Include at least one C source and one C header." />
+    <Error Condition="!Exists('%(CSharpXNativeCSource.FullPath)')" Code="CSX1704" Text="C source not found: %(CSharpXNativeCSource.Identity)" />
+    <Error Condition="!Exists('%(CSharpXNativeCHeader.FullPath)')" Code="CSX1704" Text="C header not found: %(CSharpXNativeCHeader.Identity)" />
+    <PropertyGroup>
+      <CSharpXNativeSourceList>$(CSharpXTrustedCFileDirectory)\sources.txt</CSharpXNativeSourceList>
+    </PropertyGroup>
+    <MakeDir Directories="$(CSharpXTrustedCFileDirectory)" />
+    <WriteLinesToFile File="$(CSharpXNativeSourceList)" Lines="@(CSharpXNativeCSource->'%(FullPath)')" Overwrite="true" />
+    <Exec Command="&quot;$(CSharpXNativeFileBuildScript)&quot; &quot;$(CSharpXTrustedCFileDirectory)&quot; &quot;$(CSharpXNativeSourceList)&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" EchoOff="true" />
+  </Target>
+</Project>

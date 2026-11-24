@@ -10,12 +10,14 @@ pub enum Element {
 }
 
 impl Element {
-    pub(super) fn from_type(ty: Ty) -> Result<Self, String> {
+    pub(super) fn from_type(ty: &Ty) -> Result<Self, String> {
         match ty {
             Ty::Int => Ok(Self::Int),
             Ty::Str => Ok(Self::String),
             Ty::Bool => Ok(Self::Bool),
-            Ty::Temporal(ty) => Ok(Self::Temporal(ty)),
+            Ty::Temporal(ty) => Ok(Self::Temporal(*ty)),
+            Ty::Tuple(_) => Err("CSX1601: arrays of tuples are not supported".into()),
+            Ty::Pointer(_) => Err("CSX1601: arrays of pointers are not supported".into()),
             Ty::Array(_) => Err("CSX1601: nested arrays are not supported".into()),
         }
     }
@@ -130,7 +132,7 @@ pub(super) fn emit_array(
             let mut values = Vec::new();
             for expression in items {
                 let (value, kind) = emit_expr(expression, vars)?;
-                let expected = element.get_or_insert(Element::from_type(kind)?);
+                let expected = element.get_or_insert(Element::from_type(&kind)?);
                 if kind != expected.scalar() {
                     return Err("CSX1604: incompatible array element type".into());
                 }

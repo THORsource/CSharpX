@@ -32,7 +32,7 @@ Der Live-Restore benötigt Zugriff auf die konfigurierten Paketquellen oder eine
 
 ## Native CSharpX-Projekte in Visual Studio 2022
 
-Installiere die VSIX 0.2.1 und öffne danach über **Datei → Öffnen → Projekt/Projektmappe** die Datei examples\hello\Hello.csxproj. **Erstellen → Projektmappe erstellen** verwendet das MSBuild-Ziel Build. Der Compiler aus target\release muss bereits gebaut sein und rustc muss für Visual Studio im PATH liegen. Das Programm liegt unter examples\hello\bin\Debug\Hello.exe bzw. bin\Release\Hello.exe.
+Installiere die aktuelle VSIX über den Assistenten und öffne danach über **Datei → Öffnen → Projekt/Projektmappe** die Datei examples\hello\Hello.csxproj. **Erstellen → Projektmappe erstellen** verwendet das MSBuild-Ziel Build. Der Compiler aus target\release muss bereits gebaut sein und rustc muss für Visual Studio im PATH liegen. Das Programm liegt unter examples\hello\bin\Debug\Hello.exe bzw. bin\Release\Hello.exe.
 
 Die VSIX enthält die CPS-Registrierung für .csxproj und eine CSharpX-Console-Vorlage. Für ein Projekt aus der Vorlage wird der vollständige Compilerpfad über die Eigenschaft CSharpXCompiler (oder eine gleichnamige Umgebungsvariable vor dem Start von Visual Studio) gesetzt. Die Vorlage speichert die MSBuild-Ziele im Projektordner. Die mitgelieferten Beispiele verwenden die gemeinsamen Targets im Repository.
 
@@ -56,3 +56,9 @@ Das Ziel steuert die an rustc übergebene Zielkennung und den Ausgabeordner. Bei
 CSharpX-Projekte zeigen CSharpX-Diagnosen. Fehlende Zielwerkzeuge oder Linker, gesperrte Ausgaben und Linkfehler haben eigene Hinweise. Interne Compilerbefehle, generierte Dateien und Warnungen des nativen Compilers erscheinen im normalen Buildprotokoll nicht. Der Fehlerstatus wird weiterhin an Visual Studio gemeldet.
 
 Die eigene Eigenschaftenseite CSharpX ist per Rechtsklick auf das Projekt und Eigenschaften oder mit Alt+Enter erreichbar. Der Ausgabetyp Anwendung erzeugt unter Windows eine EXE und unter Linux oder macOS eine ausführbare Datei ohne Endung. Bibliothek erzeugt eine DLL, SO oder DYLIB. Bibliotheken verwenden die native Rust-ABI, brauchen zur Nutzung eine kompatible Toolchain sowie deren Laufzeit und sind keine .NET-Assemblies. Windows-EXE und Windows-DLL wurden durch Ausführung bzw. einen separaten Aufrufer geprüft. Linux- und macOS-Ausgabepfade wurden ausgewertet.
+
+## Interop-Beispiele und unsafe
+
+Die Projekte CFileAccess.csxproj, CsUsage.csxproj und MixedInterop.csxproj zeigen externe C- bzw. C#-Aufrufe. Ihre einzelnen externen Aufrufe stehen in unsafe-Blöcken. Dieselben Beispiele nutzen die eingebaute Konsole außerhalb dieser Blöcke. Ein externer Aufruf ohne Block muss mit CSX1709 an der Aufrufstelle scheitern.
+
+NuGetDemo prüft den Paketbestand über Restore-NuGet.bat. Der Paketaufruf bleibt ein künftiger Test. Das AUTOSAR-Desktop-Szenario gibt Befehle für einen separaten Adapter aus. Dabei ruft sein CSX-Code nur die eingebaute Konsole auf.

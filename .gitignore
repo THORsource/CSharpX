@@ -6,3 +6,7 @@ __pycache__/
 *.pyc
 /csx-out/
 /examples/primes/benchmark/build/
+/examples/c-file-access/build/
+/examples/c-file-access/c-file-access-demo.txt
+/examples/c-file-access/c-file-access-extra.txt
+/examples/mixed-c-csharp/mixed-interop-demo.txt

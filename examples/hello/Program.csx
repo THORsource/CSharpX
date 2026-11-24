@@ -4,7 +4,7 @@ public static void Main()
     Mensch f = new Frau();
     i = 10;
     Console.ReadLine();
-    Console.WriteLine(Hello + f.GetName());
+    Console.WriteLine(f.GetName());
     Console.WriteLine(i);
     Console.ReadLine();
 }

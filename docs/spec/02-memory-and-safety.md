@@ -15,3 +15,5 @@ For generated application modules without source `unsafe`, the backend MUST emit
 ## Effects
 
 `Allocate`, `Collect`, `Block`, `Throw`, `IO`, `Sync`, `UnsafeHardware` are propagated through call graphs. `[NoAllocation]`, `[NoGC]`, `[NoBlocking]`, `[NoThrow]` trigger transitive checks.
+
+The scalar compiler supports int* and bool* to local variables, address-of, dereference and assignment through a pointer inside unsafe blocks. The programmer is responsible for pointee lifetime. Only generated pointer reads and writes receive a local exemption from deny(unsafe_code).

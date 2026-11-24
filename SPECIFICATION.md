@@ -14,3 +14,13 @@ Die Detailentwürfe stehen in `docs/spec/00-status-and-conformance.md` bis `docs
 ## Skalare Kontrollfl?sse und Zeitmessung
 
 Im skalaren Compilerpfad unterst?tzen `if`, optionales `else` und `while` jeweils Blockk?rper. Bedingungen sind boolesche Ausdr?cke, Ganzzahlvergleiche oder boolesche Gleichheitsvergleiche. `break` verl?sst die innerste Schleife im selben Ausnahmeblock. `Stopwatch.GetTimestamp()` liest eine monotone Uhr. `Stopwatch.Frequency` gibt deren Ticks pro Sekunde an. Zeitdauern ergeben sich aus der Differenz zweier Zeitstempel geteilt durch die Frequenz.
+
+Aufrufe importierter C- und C#-Funktionen müssen in einem unsafe-Block stehen. Der Block hat einen eigenen Variablenbereich und markiert die Vertrauensgrenze. Eingebaute CSharpX-Aufrufe benötigen diesen Block nicht.
+
+Im skalaren Sprachpfad sind int* und bool* in unsafe-Blöcken verfügbar. &variable nimmt die Adresse eines lokalen Werts. *pointer liest den Wert oder weist ihn über *pointer = wert zu. Die Gültigkeitsdauer des adressierten Werts liegt in der Verantwortung des aufrufenden Codes.
+
+Rust-Quelldateien lassen sich in skalaren Projekten mit using und optionalem Alias importieren. Aufrufbar sind öffentliche Funktionen auf Modulebene mit der Signatur fn(&str) -> String. Die Aufrufe erfordern einen unsafe-Block.
+
+Ein Klassenprojekt kann Instanztypen und ihre Basisklassen in getrennten CSX-Dateien deklarieren. Jede Datei muss ihre eigenen Blöcke schließen. Bei mehreren Klassen mit statischem Main wählt StartupObject den Einstiegspunkt anhand des Klassennamens.
+
+Der skalare Compiler unterstützt Tupelliterale mit mindestens zwei Elementen, explizite Tupeltypen, benannte Elemente, ItemN-Zugriffe, Elementzuweisungen und Dekonstruktion mit var. Elementtypen sind int, string, bool und verschachtelte Tupel.

@@ -26,3 +26,15 @@ CSharpX shall accept `using` namespaces from referenced .NET assemblies and NuGe
 
 ## Compatibility limits
 No claim of universal .NET DLL compatibility is made. Mixed-mode assemblies, Windows-specific APIs, dynamic code generation, reflection emit, COM, C++/CLI and framework-dependent packages require separate support or restrictions. NuGet restore requires a local .NET SDK and package source access.
+
+## C# source imports for desktop executables
+
+A scalar CSharpX file can select an included C# source with using "File.cs"; or using "File.cs" AS Alias;. A source must provide a file-named public type in the global namespace. Public static string(string) methods are bound by the .NET 9 C# compiler. One C# source can be imported without an alias, and additional sources can be imported under distinct aliases. Direct managed assembly references and NuGet execution remain outside this feature.
+
+Imported sources are compiled as a separate managed assembly. The generated runner binds method groups at build time without invoking imported code. The executable starts a .NET process per call and exchanges a single UTF-8 string in each direction over standard input and output. Imported code runs with the user's permissions. The generated runner directory travels alongside the executable.
+
+## Optional single-file distribution
+
+CSharpXBundleManaged (CLI --bundle-managed) embeds the managed runner and its project assemblies into the executable or dynamic library. CSharpXBundleDotNet (CLI --bundle-dotnet) additionally embeds the build machine's Windows x64 .NET 9 runtime and host, including redistribution notices. Both settings default to false. Runtime bundling requires single-file output. A managed-import library requires single-file output and exposes int csx_run(void). The runner still uses a child process and extracts bundled files into an isolated temporary directory for each call.
+
+Calling imported C# methods requires an unsafe block in the CSharpX source.

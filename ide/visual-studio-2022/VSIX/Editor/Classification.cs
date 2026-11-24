@@ -2,7 +2,6 @@ using Microsoft.VisualStudio.Language.StandardClassification;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
-using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Utilities;
@@ -10,42 +9,97 @@ using Microsoft.VisualStudio.Utilities;
 namespace CSharpX.VisualStudio.Editor
 {
     [Export(typeof(IClassifierProvider))]
-    [ContentType("CSharpX")]
+    [ContentType("text")]
     internal sealed class CSharpXClassifierProvider : IClassifierProvider
     {
         [Import] internal IClassificationTypeRegistryService Registry = null;
+        [Import] internal ITextDocumentFactoryService Documents = null;
+
         public IClassifier GetClassifier(ITextBuffer buffer)
         {
-            return buffer.Properties.GetOrCreateSingletonProperty(() => new CSharpXClassifier(Registry));
+            bool isCSharpX = buffer.ContentType.IsOfType("CSharpX");
+            var extension = Documents.TryGetTextDocument(buffer, out var document)
+                ? System.IO.Path.GetExtension(document.FilePath)
+                : null;
+            var language = SyntaxLexer.LanguageFromExtension(extension);
+            if (language == null && !isCSharpX) return null;
+            // Keep the installed language service in charge on native editor buffers.
+            if (language == SyntaxLanguage.CSharp && buffer.ContentType.IsOfType("CSharp") ||
+                language == SyntaxLanguage.C && (buffer.ContentType.IsOfType("C/C++") || buffer.ContentType.IsOfType("C++")) ||
+                language == SyntaxLanguage.Rust && buffer.ContentType.IsOfType("Rust"))
+                return null;
+
+            return buffer.Properties.GetOrCreateSingletonProperty(
+                () => new CSharpXClassifier(buffer, Registry, language ?? SyntaxLanguage.CSharpX));
         }
     }
 
     internal sealed class CSharpXClassifier : IClassifier
     {
-        private static readonly Regex Tokens = new Regex(
-            @"//[^\r\n]*|/\*[\s\S]*?\*/|""(?:\\.|[^""\\])*""|\b(?:class|interface|struct|enum|public|private|protected|internal|static|virtual|override|abstract|sealed|new|return|void|int|long|float|double|bool|string|true|false|null|if|else|while|for|foreach|using|namespace|try|catch|finally|throw|unsafe|extern|base|this|var|async|await)\b|\b\d+(?:\.\d+)?\b",
-            RegexOptions.Compiled);
-        private readonly IClassificationType keyword, comment, str, number;
-        public CSharpXClassifier(IClassificationTypeRegistryService registry)
+        private readonly IClassificationType[] classifications;
+        private readonly SyntaxLanguage language;
+        private readonly object cacheLock = new object();
+        private ITextSnapshot cachedSnapshot;
+        private IReadOnlyList<SyntaxSpan> cachedTokens;
+
+        public CSharpXClassifier(ITextBuffer buffer, IClassificationTypeRegistryService registry, SyntaxLanguage language)
         {
-            keyword = registry.GetClassificationType(PredefinedClassificationTypeNames.Keyword);
-            comment = registry.GetClassificationType(PredefinedClassificationTypeNames.Comment);
-            str = registry.GetClassificationType(PredefinedClassificationTypeNames.String);
-            number = registry.GetClassificationType(PredefinedClassificationTypeNames.Number);
+            this.language = language;
+            var identifier = registry.GetClassificationType(PredefinedClassificationTypeNames.Identifier);
+            classifications = new[]
+            {
+                registry.GetClassificationType(PredefinedClassificationTypeNames.Keyword),
+                registry.GetClassificationType(PredefinedClassificationTypeNames.Comment),
+                registry.GetClassificationType(PredefinedClassificationTypeNames.String),
+                registry.GetClassificationType(PredefinedClassificationTypeNames.Number),
+                registry.GetClassificationType("class name") ?? identifier,
+                registry.GetClassificationType("method name") ?? identifier,
+                registry.GetClassificationType(PredefinedClassificationTypeNames.Operator),
+                registry.GetClassificationType("punctuation") ?? identifier,
+            };
+            buffer.ChangedLowPriority += OnBufferChanged;
         }
-        public event EventHandler<ClassificationChangedEventArgs> ClassificationChanged { add {} remove {} }
+
+        public event EventHandler<ClassificationChangedEventArgs> ClassificationChanged;
+
+        private void OnBufferChanged(object sender, TextContentChangedEventArgs args)
+        {
+            // An edit can open a block comment or verbatim string across later lines.
+            ClassificationChanged?.Invoke(this,
+                new ClassificationChangedEventArgs(new SnapshotSpan(args.After, 0, args.After.Length)));
+        }
+
         public IList<ClassificationSpan> GetClassificationSpans(SnapshotSpan span)
         {
             var results = new List<ClassificationSpan>();
-            string text = span.Snapshot.GetText();
-            foreach (Match match in Tokens.Matches(text))
+            if (span.IsEmpty) return results;
+
+            IReadOnlyList<SyntaxSpan> tokens;
+            lock (cacheLock)
             {
-                if (match.Index + match.Length <= span.Start.Position || match.Index >= span.End.Position) continue;
-                var kind = match.Value.StartsWith("//") || match.Value.StartsWith("/*") ? comment :
-                           match.Value.StartsWith("\"") ? str : char.IsDigit(match.Value[0]) ? number : keyword;
-                int start = Math.Max(match.Index, span.Start.Position);
-                int end = Math.Min(match.Index + match.Length, span.End.Position);
-                results.Add(new ClassificationSpan(new SnapshotSpan(span.Snapshot, start, end - start), kind));
+                if (cachedSnapshot != span.Snapshot)
+                {
+                    cachedTokens = SyntaxLexer.Scan(span.Snapshot.GetText(), language);
+                    cachedSnapshot = span.Snapshot;
+                }
+                tokens = cachedTokens;
+            }
+
+            int lo = 0, hi = tokens.Count;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                if (tokens[mid].End <= span.Start.Position) lo = mid + 1;
+                else hi = mid;
+            }
+            for (int i = lo; i < tokens.Count && tokens[i].Start < span.End.Position; i++)
+            {
+                var token = tokens[i];
+                var classification = classifications[(int)token.Kind];
+                if (classification == null) continue;
+                int start = Math.Max(token.Start, span.Start.Position);
+                int end = Math.Min(token.End, span.End.Position);
+                results.Add(new ClassificationSpan(new SnapshotSpan(span.Snapshot, start, end - start), classification));
             }
             return results;
         }

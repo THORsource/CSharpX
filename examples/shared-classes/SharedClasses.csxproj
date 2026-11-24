@@ -1,0 +1,21 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>b9e69392-c76a-4b5a-8eb8-e27e40076053</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <CSharpXTargetOs>Windows</CSharpXTargetOs>
+    <OutputType>Exe</OutputType>
+    <CSharpXBundleManaged>true</CSharpXBundleManaged>
+    <CSharpXBundleDotNet>false</CSharpXBundleDotNet>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>Program</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx" />
+    <CSharpXCompile Include="AlternateProgram.csx" />
+    <CSharpXCompile Include="TemperatureReading.csx" />
+    <CSharpXCompile Include="Reading.csx" />
+  </ItemGroup>
+  <Import Project="..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+</Project>

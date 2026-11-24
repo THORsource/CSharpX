@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Id="CSharpX.VisualStudio.3c8fa512-7a28-44f9-b85e-4d74f920ff24" Version="0.2.5" Language="en-US" Publisher="CSharpX" />
+    <Identity Id="CSharpX.VisualStudio.3c8fa512-7a28-44f9-b85e-4d74f920ff24" Version="0.2.7" Language="en-US" Publisher="CSharpX" />
     <DisplayName>CSharpX Language Tools</DisplayName>
     <Description xml:space="preserve">CSharpX syntax highlighting and project starter template for Visual Studio 2022.</Description>
     <Tags>CSharpX,language,editor</Tags>

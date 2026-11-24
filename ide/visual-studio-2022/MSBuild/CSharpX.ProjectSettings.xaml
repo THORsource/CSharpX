@@ -21,5 +21,11 @@
     <EnumValue Name="Exe" DisplayName="Anwendung (EXE / Programm)" />
     <EnumValue Name="Library" DisplayName="Bibliothek (DLL / SO / DYLIB)" />
   </EnumProperty>
+  <BoolProperty Name="CSharpXBundleManaged" DisplayName="Einzeldatei für C#-Importe" Category="Output"
+                Description="Bettet die C#-Projektdateien in die EXE oder DLL ein." />
+  <BoolProperty Name="CSharpXBundleDotNet" DisplayName=".NET-Laufzeit mitliefern" Category="Output"
+                Description="Bettet zusätzlich die .NET-9-Laufzeit ein. Erfordert Einzeldatei und Windows x64." />
+  <StringProperty Name="StartupObject" DisplayName="Startobjekt" Category="Output"
+                  Description="Name der Klasse mit der statischen Main-Methode. Bei genau einem Einstiegspunkt kann das Feld leer bleiben." />
   <StringProperty Name="AssemblyName" DisplayName="Dateiname ohne Erweiterung" Category="Output" />
 </Rule>

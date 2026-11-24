@@ -275,19 +275,59 @@ impl P {
         }
         Ok(actions)
     }
-    fn program(&mut self) -> Result<(Vec<Class>, Vec<Action>), String> {
+    fn entry_class(&self) -> bool {
+        let [Tok::Ident(_), Tok::Sym('{'), members @ ..] = &self.tokens[self.i..] else {
+            return false;
+        };
+        let mut static_method = false;
+        let mut members = members;
+        while let [Tok::Ident(modifier), rest @ ..] = members {
+            match modifier.as_str() {
+                "static" => static_method = true,
+                "public" | "private" | "protected" => {}
+                _ => break,
+            }
+            members = rest;
+        }
+        static_method
+            && matches!(members, [Tok::Ident(kind), Tok::Ident(name), ..] if kind == "void" && name == "Main")
+    }
+
+    fn program(&mut self, startup: Option<&str>) -> Result<(Vec<Class>, Vec<Action>), String> {
         let mut classes = vec![];
-        let mut actions = None;
+        let mut entries = Vec::new();
+        let mut entry_classes = BTreeSet::new();
         while self.peek() != &Tok::Eof {
+            if self.word("using") {
+                if matches!(self.peek(), Tok::Str(_)) {
+                    return Err("CSX2111: file imports are not supported in projects with shared classes".into());
+                }
+                self.ident()?;
+                while self.sym('.') {
+                    self.ident()?;
+                }
+                self.need(';')?;
+                continue;
+            }
             let (_, _, abstract_) = self.modifiers();
             if self.word("class") {
-                classes.push(self.class(abstract_)?)
+                if !abstract_ && self.entry_class() {
+                    let name = self.ident()?;
+                    if !entry_classes.insert(name.clone()) {
+                        return Err(format!("CSX2201: duplicate class {name}"));
+                    }
+                    self.need('{')?;
+                    self.modifiers();
+                    self.expect_word("void")?;
+                    self.expect_word("Main")?;
+                    entries.push((Some(name), self.main()?));
+                    self.need('}')?;
+                } else {
+                    classes.push(self.class(abstract_)?);
+                }
             } else if self.word("void") {
                 self.expect_word("Main")?;
-                if actions.is_some() {
-                    return Err("CSX2105: duplicate Main".into());
-                }
-                actions = Some(self.main()?)
+                entries.push((None, self.main()?));
             } else {
                 return Err(format!(
                     "CSX2106: expected class or void Main, got {:?}",
@@ -295,7 +335,21 @@ impl P {
                 ));
             }
         }
-        Ok((classes, actions.ok_or("CSX2107: Main not found")?))
+        if let Some(class) = classes.iter().find(|class| entry_classes.contains(&class.name)) {
+            return Err(format!("CSX2201: duplicate class {}", class.name));
+        }
+        let actions = if let Some(name) = startup {
+            entries.into_iter().find(|(entry, _)| entry.as_deref() == Some(name))
+                .map(|(_, actions)| actions)
+                .ok_or_else(|| format!("CSX2112: startup object {name} has no supported static Main"))?
+        } else {
+            match entries.len() {
+                0 => return Err("CSX2107: Main not found".into()),
+                1 => entries.pop().expect("one entry point").1,
+                _ => return Err("CSX2105: multiple Main methods; set the StartupObject project property".into()),
+            }
+        };
+        Ok((classes, actions))
     }
 }
 fn ancestor(classes: &BTreeMap<String, Class>, child: &str, parent: &str) -> bool {
@@ -333,16 +387,17 @@ fn safe_ident(s: &str) -> bool {
         && !s.starts_with(|c: char| c.is_ascii_digit())
 }
 pub fn compile(src: &str) -> Result<(String, String), String> {
-    compile_tokens(lex(src)?)
+    compile_tokens(lex(src)?, None)
 }
-pub fn compile_tokens(tokens: Vec<Tok>) -> Result<(String, String), String> {
+pub fn compile_tokens(tokens: Vec<Tok>, startup: Option<&str>) -> Result<(String, String), String> {
     let (tokens, specializations) = generics::specialize(tokens)?;
     let mut p = P { tokens, i: 0 };
-    let (defs, actions) = p.program()?;
+    let (defs, actions) = p.program(startup)?;
     let mut classes = BTreeMap::new();
     for c in defs {
-        if !safe_ident(&c.name) || classes.insert(c.name.clone(), c).is_some() {
-            return Err("CSX2201: duplicate/invalid class".into());
+        let name = c.name.clone();
+        if !safe_ident(&name) || classes.insert(name.clone(), c).is_some() {
+            return Err(format!("CSX2201: duplicate or invalid class {name}"));
         }
     }
     for c in classes.values() {
