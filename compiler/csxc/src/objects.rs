@@ -39,6 +39,7 @@ struct Method {
 }
 #[derive(Clone, Debug)]
 struct Class {
+    scope: Scope,
     name: String,
     base: Option<String>,
     methods: Vec<Method>,
@@ -63,6 +64,47 @@ enum Action {
         tokens: Vec<Tok>,
     },
 }
+pub(crate) const FILE_BOUNDARY: Tok = Tok::Sym('\0');
+
+#[derive(Clone, Debug, Default)]
+struct Scope {
+    namespace: String,
+    imports: Vec<String>,
+    aliases: BTreeMap<String, String>,
+}
+
+impl Scope {
+    fn qualify(&self, name: &str) -> String {
+        if self.namespace.is_empty() { name.to_owned() } else { format!("{}.{name}", self.namespace) }
+    }
+
+    fn resolve(&self, name: &str, types: &BTreeMap<String, String>) -> Result<Option<String>, String> {
+        let (head, tail) = name.split_once('.').map_or((name, None), |(head, tail)| (head, Some(tail)));
+        if let Some(target) = self.aliases.get(head) {
+            let full_name = tail.map_or_else(|| target.clone(), |tail| format!("{target}.{tail}"));
+            return types.get(&full_name).cloned().map(Some).ok_or_else(|| {
+                format!("CSX2212: alias {head} does not resolve to a class at {full_name}")
+            });
+        }
+        let mut namespace = self.namespace.as_str();
+        while !namespace.is_empty() {
+            if let Some(found) = types.get(&format!("{namespace}.{name}")) {
+                return Ok(Some(found.clone()));
+            }
+            namespace = namespace.rsplit_once('.').map_or("", |(parent, _)| parent);
+        }
+        if let Some(found) = types.get(name) {
+            return Ok(Some(found.clone()));
+        }
+        let mut matches = self.imports.iter().filter_map(|prefix| types.get(&format!("{prefix}.{name}")));
+        let first = matches.next();
+        if matches.any(|other| Some(other) != first) {
+            return Err(format!("CSX2210: ambiguous type {name}"));
+        }
+        Ok(first.cloned())
+    }
+}
+
 struct P {
     tokens: Vec<Tok>,
     i: usize,
@@ -107,6 +149,14 @@ impl P {
             t => Err(format!("CSX2102: expected identifier, got {t:?}")),
         }
     }
+    fn qualified_name(&mut self) -> Result<String, String> {
+        let mut name = self.ident()?;
+        while self.sym('.') {
+            name.push('.');
+            name.push_str(&self.ident()?);
+        }
+        Ok(name)
+    }
     fn expect_word(&mut self, s: &str) -> Result<(), String> {
         if self.word(s) {
             Ok(())
@@ -135,10 +185,10 @@ impl P {
         }
         (v, o, a)
     }
-    fn class(&mut self, abstract_: bool) -> Result<Class, String> {
-        let name = self.ident()?;
+    fn class(&mut self, abstract_: bool, scope: Scope) -> Result<Class, String> {
+        let name = scope.qualify(&self.ident()?);
         let base = if self.sym(':') {
-            Some(self.ident()?)
+            Some(self.qualified_name()?)
         } else {
             None
         };
@@ -208,6 +258,7 @@ impl P {
             });
         }
         Ok(Class {
+            scope,
             name,
             base,
             methods,
@@ -256,12 +307,12 @@ impl P {
                 let ty = if self.word("var") {
                     String::new()
                 } else {
-                    self.ident()?
+                    self.qualified_name()?
                 };
                 let name = self.ident()?;
                 self.need('=')?;
                 if self.word("new") {
-                    let concrete = self.ident()?;
+                    let concrete = self.qualified_name()?;
                     self.need('(')?;
                     self.need(')')?;
                     self.need(';')?;
@@ -293,18 +344,51 @@ impl P {
             && matches!(members, [Tok::Ident(kind), Tok::Ident(name), ..] if kind == "void" && name == "Main")
     }
 
-    fn program(&mut self, startup: Option<&str>) -> Result<(Vec<Class>, Vec<Action>), String> {
+    fn program(&mut self, startup: Option<&str>) -> Result<(Vec<Class>, Vec<Action>, Scope), String> {
         let mut classes = vec![];
         let mut entries = Vec::new();
         let mut entry_classes = BTreeSet::new();
+        let mut scope = Scope::default();
+        let mut outer = Vec::new();
         while self.peek() != &Tok::Eof {
+            if self.peek() == &FILE_BOUNDARY {
+                if !outer.is_empty() { return Err("CSX2209: namespace crosses a file boundary".into()); }
+                self.next();
+                scope = Scope::default();
+                continue;
+            }
+            if self.sym('}') {
+                scope = outer.pop().ok_or("CSX2209: unexpected namespace closing brace")?;
+                continue;
+            }
+            if self.word("namespace") {
+                let namespace = scope.qualify(&self.qualified_name()?);
+                if self.sym('{') {
+                    outer.push(scope.clone());
+                } else {
+                    if !outer.is_empty() || !scope.namespace.is_empty() {
+                        return Err("CSX2209: file-scoped namespace must be at file level".into());
+                    }
+                    self.need(';')?;
+                }
+                scope.namespace = namespace;
+                continue;
+            }
             if self.word("using") {
                 if matches!(self.peek(), Tok::Str(_)) {
                     return Err("CSX2111: file imports are not supported in projects with shared classes".into());
                 }
-                self.ident()?;
-                while self.sym('.') {
-                    self.ident()?;
+                let name = self.qualified_name()?;
+                if self.sym('=') {
+                    if !safe_ident(&name) {
+                        return Err("CSX2212: expected a single identifier as alias".into());
+                    }
+                    let target = self.qualified_name()?;
+                    if scope.aliases.insert(name.clone(), target).is_some() {
+                        return Err(format!("CSX2212: duplicate using alias {name}"));
+                    }
+                } else {
+                    scope.imports.push(name);
                 }
                 self.need(';')?;
                 continue;
@@ -312,7 +396,7 @@ impl P {
             let (_, _, abstract_) = self.modifiers();
             if self.word("class") {
                 if !abstract_ && self.entry_class() {
-                    let name = self.ident()?;
+                    let name = scope.qualify(&self.ident()?);
                     if !entry_classes.insert(name.clone()) {
                         return Err(format!("CSX2201: duplicate class {name}"));
                     }
@@ -320,14 +404,14 @@ impl P {
                     self.modifiers();
                     self.expect_word("void")?;
                     self.expect_word("Main")?;
-                    entries.push((Some(name), self.main()?));
+                    entries.push((Some(name), self.main()?, scope.clone()));
                     self.need('}')?;
                 } else {
-                    classes.push(self.class(abstract_)?);
+                    classes.push(self.class(abstract_, scope.clone())?);
                 }
             } else if self.word("void") {
                 self.expect_word("Main")?;
-                entries.push((None, self.main()?));
+                entries.push((None, self.main()?, scope.clone()));
             } else {
                 return Err(format!(
                     "CSX2106: expected class or void Main, got {:?}",
@@ -335,21 +419,27 @@ impl P {
                 ));
             }
         }
+        if !outer.is_empty() {
+            return Err("CSX2209: unclosed namespace".into());
+        }
         if let Some(class) = classes.iter().find(|class| entry_classes.contains(&class.name)) {
             return Err(format!("CSX2201: duplicate class {}", class.name));
         }
-        let actions = if let Some(name) = startup {
-            entries.into_iter().find(|(entry, _)| entry.as_deref() == Some(name))
-                .map(|(_, actions)| actions)
+        let (actions, action_scope) = if let Some(name) = startup {
+            entries.into_iter().find(|(entry, _, _)| entry.as_deref() == Some(name))
+                .map(|(_, actions, scope)| (actions, scope))
                 .ok_or_else(|| format!("CSX2112: startup object {name} has no supported static Main"))?
         } else {
             match entries.len() {
                 0 => return Err("CSX2107: Main not found".into()),
-                1 => entries.pop().expect("one entry point").1,
+                1 => {
+                    let (_, actions, scope) = entries.pop().expect("one entry point");
+                    (actions, scope)
+                }
                 _ => return Err("CSX2105: multiple Main methods; set the StartupObject project property".into()),
             }
         };
-        Ok((classes, actions))
+        Ok((classes, actions, action_scope))
     }
 }
 fn ancestor(classes: &BTreeMap<String, Class>, child: &str, parent: &str) -> bool {
@@ -390,15 +480,54 @@ pub fn compile(src: &str) -> Result<(String, String), String> {
     compile_tokens(lex(src)?, None)
 }
 pub fn compile_tokens(tokens: Vec<Tok>, startup: Option<&str>) -> Result<(String, String), String> {
-    let (tokens, specializations) = generics::specialize(tokens)?;
+    let namespaced = tokens.iter().any(|token| matches!(token, Tok::Ident(word) if word == "namespace"));
+    let (tokens, specializations) = if namespaced {
+        (tokens, Vec::new())
+    } else {
+        generics::specialize(tokens.into_iter().filter(|token| token != &FILE_BOUNDARY).collect())?
+    };
     let mut p = P { tokens, i: 0 };
-    let (defs, actions) = p.program(startup)?;
-    let mut classes = BTreeMap::new();
-    for c in defs {
-        let name = c.name.clone();
-        if !safe_ident(&name) || classes.insert(name.clone(), c).is_some() {
+    let (mut defs, mut actions, action_scope) = p.program(startup)?;
+    let mut types = BTreeMap::new();
+    let mut used = BTreeSet::new();
+    for class in &defs {
+        if !class.name.contains('.') { used.insert(class.name.clone()); }
+    }
+    let mut index = 0;
+    for class in &defs {
+        let name = &class.name;
+        let lowered = if name.contains('.') {
+            loop {
+                let candidate = format!("CsxNamespace{index}");
+                index += 1;
+                if used.insert(candidate.clone()) { break candidate; }
+            }
+        } else {
+            name.clone()
+        };
+        if !name.split('.').all(safe_ident) || types.insert(name.clone(), lowered).is_some() {
             return Err(format!("CSX2201: duplicate or invalid class {name}"));
         }
+    }
+    let resolve = |scope: &Scope, name: &mut String| -> Result<(), String> {
+        if let Some(resolved) = scope.resolve(name, &types)? { *name = resolved; }
+        Ok(())
+    };
+    for action in &mut actions {
+        match action {
+            Action::New { ty, concrete, .. } => {
+                resolve(&action_scope, ty)?;
+                resolve(&action_scope, concrete)?;
+            }
+            Action::Alias { ty, .. } => resolve(&action_scope, ty)?,
+            _ => {}
+        }
+    }
+    let mut classes = BTreeMap::new();
+    for mut class in defs.drain(..) {
+        if let Some(base) = &mut class.base { resolve(&class.scope, base)?; }
+        class.name = types[&class.name].clone();
+        classes.insert(class.name.clone(), class);
     }
     for c in classes.values() {
         if let Some(b) = &c.base {

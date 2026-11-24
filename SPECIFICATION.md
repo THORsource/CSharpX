@@ -24,3 +24,5 @@ Rust-Quelldateien lassen sich in skalaren Projekten mit using und optionalem Ali
 Ein Klassenprojekt kann Instanztypen und ihre Basisklassen in getrennten CSX-Dateien deklarieren. Jede Datei muss ihre eigenen Blöcke schließen. Bei mehreren Klassen mit statischem Main wählt StartupObject den Einstiegspunkt anhand des Klassennamens.
 
 Der skalare Compiler unterstützt Tupelliterale mit mindestens zwei Elementen, explizite Tupeltypen, benannte Elemente, ItemN-Zugriffe, Elementzuweisungen und Dekonstruktion mit var. Elementtypen sind int, string, bool und verschachtelte Tupel.
+
+Der Klassenpfad unterstützt Namespaces in Block- und Dateiform, Datei- und Namespace-lokale using-Direktiven, qualifizierte Klassennamen und qualifizierte Startobjekte. Gleichnamige Klassen in unterschiedlichen Namespaces sind zulässig.

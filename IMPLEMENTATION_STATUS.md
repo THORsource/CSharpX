@@ -60,3 +60,4 @@ RustUsage.csxproj wurde unter Windows x64 gebaut und ausgeführt. Es verwendet e
 SharedClasses.csxproj wurde mit Visual Studio 2022 MSBuild für Program und AlternateProgram gebaut und ausgeführt. Geprüft wurden fehlende und unbekannte Startobjekte, Klassen ohne Main, doppelte Klassen, unbekannte Basisklassen, nicht geschlossene Blöcke und ungültige Zeichen. Laufzeittests prüften catch, finally und die Weitergabe unbehandelter Fehler.
 
 Tuples.csxproj wurde mit Visual Studio 2022 MSBuild gebaut und unter Windows x64 ausgeführt. Ausgaben waren (42, kPa), 42 kPa, kPa und True. Der Installationsassistent wurde mit CheckOnly und BuildOnly geprüft. Compiler und VSIX wurden gebaut. Die Systeminstallation wurde hierbei nicht ausgeführt.
+Namespaces.csxproj wurde unter Windows x64 mit Visual Studio 2022 MSBuild gebaut und gab 42 und 99 aus. Beide Namespace-Formen, ein Namespace-Import und ein qualifizierter Typzugriff wurden damit ausgeführt.

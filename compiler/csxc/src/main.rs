@@ -292,6 +292,11 @@ fn uses_object_parser(source: &str) -> bool {
     use language::temporal::TemporalType;
     use language::Tok;
 
+    if source.contains("namespace") && language::lex(source).is_ok_and(|tokens| {
+        tokens.iter().any(|token| matches!(token, Tok::Ident(word) if word == "namespace"))
+    }) {
+        return true;
+    }
     if !source.contains("class ") {
         return false;
     }
@@ -370,6 +375,7 @@ fn build_project(
                         "CSX2110: block must be closed in the same file",
                     )));
                 }
+                tokens.push(objects::FILE_BOUNDARY);
             }
             tokens.push(language::Tok::Eof);
             objects::compile_tokens(tokens, options.startup)?.0
