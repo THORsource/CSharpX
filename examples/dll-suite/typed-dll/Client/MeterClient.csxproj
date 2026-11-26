@@ -1,0 +1,11 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>e773aca5-0ba6-4952-b801-e7da43348e20</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx" />
+    <CSharpXCompile Include="..\Configuration.csx" Link="Configuration.csx" />
+    <CSharpXAbiReference Include="..\Library\bin\$(Configuration)\MeterRules.dll" />
+  </ItemGroup>
+  <Import Project="..\..\..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+</Project>

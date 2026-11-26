@@ -1,4 +1,7 @@
 #![forbid(unsafe_code)]
+mod abi;
+mod abi_text;
+mod abi_borrow;
 mod c_header;
 mod diagnostics;
 mod language;
@@ -34,6 +37,9 @@ struct BuildOptions<'a> {
     cs_sources: Vec<&'a str>,
     rust_sources: Vec<&'a str>,
     startup: Option<&'a str>,
+    abi_export: Option<&'a str>,
+    abi_import: Option<&'a str>,
+    abi_borrow: bool,
 }
 
 impl<'a> BuildOptions<'a> {
@@ -46,6 +52,7 @@ impl<'a> BuildOptions<'a> {
                 "--debug" if !options.debug => options.debug = true,
                 "--bundle-dotnet" if !options.bundle_dotnet => options.bundle_dotnet = true,
                 "--bundle-managed" if !options.bundle_managed => options.bundle_managed = true,
+                "--abi-borrow" if !options.abi_borrow => options.abi_borrow = true,
                 "--library" if !options.library => options.library = true,
                 "--c-header" | "--cs-source" | "--rs-source" => {
                     let Some((value, remaining)) = args.split_first() else {
@@ -61,11 +68,13 @@ impl<'a> BuildOptions<'a> {
                     }
                     args = remaining;
                 }
-                "--target" | "--linker" | "--trusted-c-file" | "--startup-object" => {
+                "--target" | "--linker" | "--trusted-c-file" | "--startup-object" | "--abi-export" | "--abi-import" => {
                     let slot = match flag.as_str() {
                         "--target" => &mut options.target,
                         "--linker" => &mut options.linker,
                         "--startup-object" => &mut options.startup,
+                        "--abi-export" => &mut options.abi_export,
+                        "--abi-import" => &mut options.abi_import,
                         _ => &mut options.trusted_c_file,
                     };
                     let Some((value, remaining)) = args.split_first() else {
@@ -137,6 +146,7 @@ fn build(
     binary: &Path,
     options: &BuildOptions<'_>,
     original: Option<SourceDebug<'_>>,
+    typed_import: Option<(&Path, &abi::Contract)>,
 ) -> Result<(), String> {
     for path in [source, binary] {
         if let Some(parent) = path.parent() {
@@ -190,9 +200,24 @@ fn build(
             rustc.arg("--extern").arg(format!("csx_c_file={}", library.display()));
         }
     }
+    if let Some((dll, contract)) = typed_import {
+        let shim = source.with_file_name("csx_typed_abi.rs");
+        let library = source.with_file_name("libcsx_typed_abi.rlib");
+        fs::write(&shim, contract.import_shim(dll)?).map_err(|error| error.to_string())?;
+        let result = Command::new("rustc")
+            .args(["--edition=2021", "--crate-name", "csx_typed_abi", "--crate-type", "rlib", "--target", "x86_64-pc-windows-msvc"])
+            .arg(shim).arg("-o").arg(&library).output()
+            .map_err(|_| "CSX2502: could not start the DLL adapter compiler")?;
+        if !result.status.success() {
+            return Err("CSX2502: could not compile the typed DLL adapter".into());
+        }
+        rustc.arg("--extern").arg(format!("csx_typed_abi={}", library.display()));
+    }
     if options.library {
         rustc.args(["--cfg", "csharpx_library"]);
-        if managed_library {
+        if options.abi_export.is_some() {
+            rustc.args(["--crate-type", "cdylib"]);
+        } else if managed_library {
             rustc.args(["--crate-type", "cdylib"]);
             input = source.with_file_name("csx_managed_library.rs");
             let path = std::path::absolute(source).map_err(|error| error.to_string())?;
@@ -336,10 +361,33 @@ fn build_project(
         .lines()
         .map(Path::new)
         .collect();
+    if (options.abi_export.is_some() || options.abi_import.is_some())
+        && (!cfg!(all(windows, target_arch = "x86_64", target_env = "msvc"))
+            || options.target.is_some_and(|target| target != "x86_64-pc-windows-msvc"))
+    {
+        return Err("CSX2500: typed DLL contracts require Windows x64 MSVC".into());
+    }
+    if let Some(implementation) = options.abi_export {
+        if !options.library || options.abi_import.is_some() {
+            return Err("CSX2500: ABI exports require a library project without an ABI import".into());
+        }
+        let implementation = Path::new(implementation);
+        let (rust, contract) = abi::emit_export(&paths, implementation, options.abi_borrow)
+            .map_err(|error| diagnostics::visual_studio(implementation, &error))?;
+        build(&rust, generated, binary, options, None, None)?;
+        return contract.write(binary);
+    }
+    if options.abi_import.is_some() && options.library {
+        return Err("CSX2500: ABI imports currently require an executable project".into());
+    }
+    let contract = options.abi_import.map(|dll| abi::Contract::read(Path::new(dll))).transpose()?;
+    if options.abi_borrow != contract.as_ref().is_some_and(|contract| contract.borrowed) {
+        return Err("CSX2512: both projects must opt in to the same DLL borrowing mode".into());
+    }
     let mut original = None;
     let rust = match paths.as_slice() {
         [] => return Err("CSX9005: project has no CSharpX sources".into()),
-        [path] if options.startup.is_none() => {
+        [path] if options.startup.is_none() && contract.is_none() => {
             let source = read_source(path)?;
             if options.maps_pdb() && !uses_object_parser(&source) {
                 let (rust, lines) = language::compile_with_lines(&source)
@@ -378,10 +426,17 @@ fn build_project(
                 tokens.push(objects::FILE_BOUNDARY);
             }
             tokens.push(language::Tok::Eof);
-            objects::compile_tokens(tokens, options.startup)?.0
+            objects::compile_tokens_with_abi(tokens, options.startup, contract.as_ref())
+                .map_err(|error| diagnostics::split_position(&error).1.to_owned())?.0
         }
     };
-    build(&rust, generated, binary, options, original)
+    let typed_import = options.abi_import.map(Path::new).zip(contract.as_ref())
+        .filter(|(_, contract)| contract.borrowed || rust.contains("::csx_typed_abi::invoke("));
+    build(&rust, generated, binary, options, original, typed_import)?;
+    if let Some((dll, contract)) = typed_import {
+        abi::install(dll, binary, contract)?;
+    }
+    Ok(())
 }
 
 fn run() -> Result<(), String> {
@@ -405,13 +460,13 @@ fn run() -> Result<(), String> {
                 "build" => {
                     let out: PathBuf = env::current_dir().map_err(|error| error.to_string())?.join("csx-out");
                     let executable = if cfg!(windows) { "csx-app.exe" } else { "csx-app" };
-                    build(&rust, &out.join("main.rs"), &out.join(executable), &BuildOptions::default(), None)?;
+                    build(&rust, &out.join("main.rs"), &out.join(executable), &BuildOptions::default(), None, None)?;
                 }
                 _ => unreachable!(),
             }
             Ok(())
         }
-        _ => Err("Usage: csxc <check|emit-rust|build|ownership-report> <file.csx>\n       csxc build-project <inputs.txt> <generated.rs> <executable> [--debug] [--optimize] [--target <triple>] [--linker <path>] [--library] [--bundle-managed] [--bundle-dotnet] [--trusted-c-file <directory>] [--c-header <file.h>]... [--cs-source <file.cs>]... [--rs-source <file.rs>]... [--startup-object <class>]".into()),
+        _ => Err("Usage: csxc <check|emit-rust|build|ownership-report> <file.csx>\n       csxc build-project <inputs.txt> <generated.rs> <executable> [--debug] [--optimize] [--target <triple>] [--linker <path>] [--library] [--bundle-managed] [--bundle-dotnet] [--trusted-c-file <directory>] [--c-header <file.h>]... [--cs-source <file.cs>]... [--rs-source <file.rs>]... [--startup-object <class>] [--abi-borrow] [--abi-export <implementation.csx>] [--abi-import <library.dll>]".into()),
     }
 }
 

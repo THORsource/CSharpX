@@ -1,0 +1,14 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>88985d9a-a2f2-4b72-85b6-81b0bf532526</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="..\Configuration.csx" Link="Configuration.csx" />
+    <CSharpXAbiExport Include="Evaluate.csx" />
+    <None Include="Evaluate.csx" />
+  </ItemGroup>
+  <Import Project="..\..\..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+</Project>

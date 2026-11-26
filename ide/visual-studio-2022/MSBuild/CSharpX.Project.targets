@@ -28,7 +28,9 @@
     <TargetExt Condition="'$(OutputType)' == 'Library' And '$(CSharpXTargetOs)' == 'macOS'">.dylib</TargetExt>
     <CSharpXLibraryPrefix Condition="'$(OutputType)' == 'Library' And '$(CSharpXTargetOs)' != 'Windows'">lib</CSharpXLibraryPrefix>
     <CSharpXLibraryArgument Condition="'$(OutputType)' == 'Library'"> --library</CSharpXLibraryArgument>
-    <TargetPath>$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), $(OutputPath), $(CSharpXLibraryPrefix)$(AssemblyName)$(TargetExt)))</TargetPath>
+    <CSharpXTargetFileName>$(CSharpXLibraryPrefix)$(AssemblyName)$(TargetExt)</CSharpXTargetFileName>
+    <CSharpXTargetFileName Condition="'$(CSharpXOutputFile)' != ''">$(CSharpXOutputFile)</CSharpXTargetFileName>
+    <TargetPath>$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), $(OutputPath), $(CSharpXTargetFileName)))</TargetPath>
     <CSharpXRepository>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\'))</CSharpXRepository>
     <CSharpXCompiler Condition="'$(CSharpXCompiler)' == ''">$(CSharpXRepository)target\release\csxc$(CSharpXCompilerExt)</CSharpXCompiler>
     <CSharpXGeneratedRust>$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), $(IntermediateOutputPath), 'main.rs'))</CSharpXGeneratedRust>
@@ -62,7 +64,11 @@
       <Context>BrowseObject</Context>
     </PropertyPageSchema>
   </ItemGroup>
-  <Target Name="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+  <Target Name="ValidateCSharpXOutputFile">
+    <Error Condition="'$(CSharpXOutputFile)' != '' And !$([System.Text.RegularExpressions.Regex]::IsMatch('$(CSharpXOutputFile)', '^[^/\\:*?&quot;&lt;&gt;|]+(?&lt;![. ])$'))" Code="CSX9016" Text="Ausgabedatei muss ein Dateiname ohne Verzeichnispfad sein." />
+    <Error Condition="'$(CSharpXOutputFile)' != '' And '$(TargetExt)' != '' And '$([System.IO.Path]::GetExtension($(CSharpXOutputFile)))' != '$(TargetExt)'" Code="CSX9016" Text="Ausgabedatei muss die Erweiterung $(TargetExt) haben." />
+  </Target>
+  <Target Name="Build" DependsOnTargets="ValidateCSharpXOutputFile" Condition="'$(DesignTimeBuild)' != 'true'">
     <Error Code="CSX9014" Condition="'$(CSharpXTargetTriple)' == ''" Text="Unknown target OS $(CSharpXTargetOs). Choose Windows, Linux, or macOS." />
     <Error Code="CSX9010" Condition="('$(OutputType)' != 'Exe' And '$(OutputType)' != 'Library') Or ('$(TargetPlatform)' != '' And '$(TargetPlatform)' != 'Desktop')" Text="CSharpX project build supports desktop applications and dynamic libraries." />
     <Error Code="CSX9011" Condition="'@(PackageReference);@(Reference);@(ProjectReference)' != ';;'" Text="CSharpX project build does not support managed or project references yet." />
@@ -73,26 +79,30 @@
     </ItemGroup>
     <Error Code="CSX9005" Condition="'@(_CSharpXSource)' == ''" Text="Add at least one CSharpX source file." />
     <Error Code="CSX9012" Condition="!Exists('$(CSharpXCompiler)')" Text="CSharpX compiler not found at $(CSharpXCompiler). Build the compiler first or set CSharpXCompiler to its full path." />
+    <Error Condition="'@(CSharpXAbiExport->Count())' &gt; '1' Or '@(CSharpXAbiReference->Count())' &gt; '1'" Code="CSX2500" Text="Use at most one typed export or DLL reference." />
     <MakeDir Directories="$(IntermediateOutputPath);$(OutputPath)" />
     <WriteLinesToFile File="$(CSharpXSourceList)" Lines="@(_CSharpXSource->'%(FullPath)')" Overwrite="true" Encoding="UTF-8" />
     <PropertyGroup>
       <CSharpXTrustedCFileArgument Condition="'$(CSharpXTrustedCFileDirectory)' != ''"> --trusted-c-file &quot;$(CSharpXTrustedCFileDirectory)&quot;</CSharpXTrustedCFileArgument>
       <CSharpXBundleDotNetArgument Condition="'$(CSharpXBundleDotNet)' == 'true'"> --bundle-dotnet</CSharpXBundleDotNetArgument>
       <CSharpXBundleManagedArgument Condition="'$(CSharpXBundleManaged)' == 'true'"> --bundle-managed</CSharpXBundleManagedArgument>
+      <CSharpXAbiBorrowArgument Condition="'$(CSharpXAbiBorrow)' == 'true'"> --abi-borrow</CSharpXAbiBorrowArgument>
+      <CSharpXAbiExportArgument>@(CSharpXAbiExport->' --abi-export &quot;%(FullPath)&quot;')</CSharpXAbiExportArgument>
+      <CSharpXAbiImportArgument>@(CSharpXAbiReference->' --abi-import &quot;%(FullPath)&quot;')</CSharpXAbiImportArgument>
       <CSharpXStartupArgument Condition="'$(StartupObject)' != ''"> --startup-object &quot;$(StartupObject)&quot;</CSharpXStartupArgument>
       <CSharpXRustSourceArguments>@(_CSharpXRustSource->' --rs-source &quot;%(FullPath)&quot;', ' ')</CSharpXRustSourceArguments>
       <CSharpXManagedSourceArguments>@(_CSharpXManagedSource->' --cs-source &quot;%(FullPath)&quot;', ' ')</CSharpXManagedSourceArguments>
       <CSharpXNativeCHeaderArguments>@(CSharpXNativeCHeader->' --c-header &quot;%(FullPath)&quot;', ' ')</CSharpXNativeCHeaderArguments>
       <CSharpXCHeaderArgument Condition="'$(CSharpXCHeader)' != ''"> --c-header &quot;$(CSharpXCHeader)&quot;</CSharpXCHeaderArgument>
     </PropertyGroup>
-    <Exec Command="&quot;$(CSharpXCompiler)&quot; build-project &quot;$(CSharpXSourceList)&quot; &quot;$(CSharpXGeneratedRust)&quot; &quot;$(TargetPath)&quot;$(CSharpXDebugArgument)$(CSharpXTargetArgument)$(CSharpXLinkerArgument)$(CSharpXLibraryArgument)$(CSharpXTrustedCFileArgument)$(CSharpXCHeaderArgument)$(CSharpXNativeCHeaderArguments)$(CSharpXManagedSourceArguments)$(CSharpXRustSourceArguments)$(CSharpXBundleManagedArgument)$(CSharpXBundleDotNetArgument)$(CSharpXStartupArgument)" WorkingDirectory="$(MSBuildProjectDirectory)"
+    <Exec Command="&quot;$(CSharpXCompiler)&quot; build-project &quot;$(CSharpXSourceList)&quot; &quot;$(CSharpXGeneratedRust)&quot; &quot;$(TargetPath)&quot;$(CSharpXDebugArgument)$(CSharpXTargetArgument)$(CSharpXLinkerArgument)$(CSharpXLibraryArgument)$(CSharpXTrustedCFileArgument)$(CSharpXCHeaderArgument)$(CSharpXNativeCHeaderArguments)$(CSharpXManagedSourceArguments)$(CSharpXRustSourceArguments)$(CSharpXBundleManagedArgument)$(CSharpXBundleDotNetArgument)$(CSharpXStartupArgument)$(CSharpXAbiExportArgument)$(CSharpXAbiImportArgument)$(CSharpXAbiBorrowArgument)" WorkingDirectory="$(MSBuildProjectDirectory)"
           EchoOff="true"
           ConsoleToMSBuild="true" StandardOutputImportance="Low" StandardErrorImportance="Low">
       <Output TaskParameter="ConsoleOutput" ItemName="CSharpXBuildOutput" />
     </Exec>
     <Message Importance="High" Text="@(CSharpXBuildOutput, '%0A')" />
   </Target>
-  <Target Name="Clean">
+  <Target Name="Clean" DependsOnTargets="ValidateCSharpXOutputFile">
     <Delete Files="$(CSharpXGeneratedRust);$(CSharpXSourceList);$(TargetPath);$(TargetPath).lib;$(TargetPath).exp;$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.pdb'))" />
   </Target>
   <Target Name="Rebuild" DependsOnTargets="Clean;Build" />

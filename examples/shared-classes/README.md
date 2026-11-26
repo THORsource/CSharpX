@@ -6,4 +6,4 @@ Die Einstiegspunkte stehen in Programmklassen mit je einer statischen Main-Metho
 
 Ist genau eine Main-Methode vorhanden, kann das Feld leer bleiben. Bei mehreren Einstiegspunkten verlangt der Compiler die Angabe eines Klassennamens. Der gleiche Wert lässt sich in der Projektdatei als StartupObject oder für einen einzelnen MSBuild-Aufruf über /p:StartupObject=AlternateProgram setzen.
 
-Das Beispiel verwendet das vorhandene Subset für Klassen und Vererbung. Teildefinitionen derselben Klasse (partial class), dateiübergreifende Namespaces und direkte C-, C#- oder Rust-Dateiimporte in diesem Klassenpfad sind weiterhin offen. Die Auswahl im Visual-Studio-Fenster erfolgt über ein Textfeld.
+Das Beispiel verwendet das vorhandene Subset für Klassen und Vererbung. Teildefinitionen derselben Klasse (partial class) sind weiterhin offen. Das Mehrdatei-Beispiel CompilerComposition zeigt Klassen zusammen mit skalarem Kontrollfluss und einem C-Dateiimport. Die Auswahl im Visual-Studio-Fenster erfolgt über ein Textfeld.

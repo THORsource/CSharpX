@@ -1,0 +1,15 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>e734a2dd-3f3b-4d7e-a85b-b730db77221f</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <CSharpXAbiBorrow>true</CSharpXAbiBorrow>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="..\Configuration.csx" Link="Configuration.csx" />
+    <CSharpXAbiExport Include="Read.csx" />
+    <None Include="Read.csx" />
+  </ItemGroup>
+  <Import Project="..\..\..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+</Project>

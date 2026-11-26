@@ -10,3 +10,4 @@ __pycache__/
 /examples/c-file-access/c-file-access-demo.txt
 /examples/c-file-access/c-file-access-extra.txt
 /examples/mixed-c-csharp/mixed-interop-demo.txt
+/examples/compiler-composition/compiler-demo.txt

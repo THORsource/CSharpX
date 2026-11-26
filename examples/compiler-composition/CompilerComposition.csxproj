@@ -1,0 +1,10 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>ada38de0-d772-41f7-aea8-40efd4fafbf6</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="Program.csx;SampleReading.csx;..\c-file-access\main.c;..\c-file-access\c_file_access.h" />
+  </ItemGroup>
+  <Import Project="..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+  <Import Project="..\c-file-access\CSharpX.NativeFile.targets" />
+</Project>

@@ -62,3 +62,5 @@ Die eigene Eigenschaftenseite CSharpX ist per Rechtsklick auf das Projekt und Ei
 Die Projekte CFileAccess.csxproj, CsUsage.csxproj und MixedInterop.csxproj zeigen externe C- bzw. C#-Aufrufe. Ihre einzelnen externen Aufrufe stehen in unsafe-Blöcken. Dieselben Beispiele nutzen die eingebaute Konsole außerhalb dieser Blöcke. Ein externer Aufruf ohne Block muss mit CSX1709 an der Aufrufstelle scheitern.
 
 NuGetDemo prüft den Paketbestand über Restore-NuGet.bat. Der Paketaufruf bleibt ein künftiger Test. Das AUTOSAR-Desktop-Szenario gibt Befehle für einen separaten Adapter aus. Dabei ruft sein CSX-Code nur die eingebaute Konsole auf.
+
+Unter Projekteigenschaften → CSharpX → Ausgabe kannst du einen vollständigen Dateinamen angeben. Die MSBuild-Eigenschaft CSharpXOutputFile überschreibt den Standardnamen im Ausgabeordner. Der Dateiname muss zur Erweiterung des gewählten Ausgabetyps passen.

@@ -26,3 +26,7 @@ Ein Klassenprojekt kann Instanztypen und ihre Basisklassen in getrennten CSX-Dat
 Der skalare Compiler unterstützt Tupelliterale mit mindestens zwei Elementen, explizite Tupeltypen, benannte Elemente, ItemN-Zugriffe, Elementzuweisungen und Dekonstruktion mit var. Elementtypen sind int, string, bool und verschachtelte Tupel.
 
 Der Klassenpfad unterstützt Namespaces in Block- und Dateiform, Datei- und Namespace-lokale using-Direktiven, qualifizierte Klassennamen und qualifizierte Startobjekte. Gleichnamige Klassen in unterschiedlichen Namespaces sind zulässig.
+
+Im Klassenpfad darf Main Getter parameterloser Instanzmethoden als typisierte Ausdrücke verwenden, auch in lokalen Zuweisungen, Bedingungen und interpolierten Strings. if und while sind in demselben Main verfügbar. Dateiimporte gelten pro Quelldatei und externe Aufrufe erfordern unsafe.
+
+Typisierte CSharpX-DLL-Aufrufe können unter Windows x64 eine unveränderliche Konfigurationsklasse per Kopie über eine versionierte ABI übergeben. Der derzeitige Umfang und der Vertrauensvertrag sind in docs/spec/04-native-interop.md dokumentiert.

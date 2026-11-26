@@ -16,6 +16,7 @@ impl Element {
             Ty::Str => Ok(Self::String),
             Ty::Bool => Ok(Self::Bool),
             Ty::Temporal(ty) => Ok(Self::Temporal(*ty)),
+            Ty::Object(..) | Ty::DllApi(_) | Ty::LocalFunction(..) => Err("CSX1601: arrays of class instances are not supported".into()),
             Ty::Tuple(_) => Err("CSX1601: arrays of tuples are not supported".into()),
             Ty::Pointer(_) => Err("CSX1601: arrays of pointers are not supported".into()),
             Ty::Array(_) => Err("CSX1601: nested arrays are not supported".into()),

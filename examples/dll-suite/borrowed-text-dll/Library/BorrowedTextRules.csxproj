@@ -1,0 +1,19 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>e78b602f-9cd0-49cd-a1bd-1d979f90415d</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <CSharpXAbiBorrow>true</CSharpXAbiBorrow>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="..\..\typed-text-dll\Configuration.csx" Link="Configuration.csx" />
+    <CSharpXCompile Include="..\..\typed-text-dll\Library\Decorate.csx" Link="Decorate.csx" />
+    <CSharpXCompile Include="..\..\..\c-file-access\main.c" Link="Native\main.c" />
+    <CSharpXCompile Include="..\..\..\c-file-access\c_file_access.h" Link="Native\c_file_access.h" />
+    <CSharpXAbiExport Include="..\..\typed-text-dll\Library\Describe.csx" />
+    <None Include="..\..\typed-text-dll\Library\Describe.csx" Link="Describe.csx" />
+  </ItemGroup>
+  <Import Project="..\..\..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+  <Import Project="..\..\..\c-file-access\CSharpX.NativeFile.targets" />
+</Project>

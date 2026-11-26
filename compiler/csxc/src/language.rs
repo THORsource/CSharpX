@@ -80,7 +80,7 @@ pub(crate) fn lex_with_lines(src: &str) -> Result<(Vec<Tok>, Vec<Position>), Str
     Ok((tokens, positions))
 }
 
-#[derive(Clone,Debug)]pub enum Expr{Tuple(Vec<(Option<String>, Expr)>), AddressOf(String, Position), Dereference(Box<Expr>), NativeFileRoundTrip(Option<String>, String, Box<Expr>),Timestamp, ClockFrequency, Interpolated(Vec<interpolation::Part>),Array(Option<arrays::Element>,arrays::Initializer),Index(Box<Expr>,Box<Expr>),Linq(Box<Query>),Temporal(TemporalType,Vec<Expr>),Member(Box<Expr>,String),MemberCall(Box<Expr>,String,Vec<Expr>),StringType,Null,Bool(bool),Num(i64),Str(String),Var(String,Position),Binary(Box<Expr>,char,Box<Expr>)}
+#[derive(Clone,Debug)]pub enum Expr{LocalCall(String, Vec<Expr>),Tuple(Vec<(Option<String>, Expr)>), AddressOf(String, Position), Dereference(Box<Expr>), NativeFileRoundTrip(Option<String>, String, Box<Expr>),Timestamp, ClockFrequency, Interpolated(Vec<interpolation::Part>),Array(Option<arrays::Element>,arrays::Initializer),Index(Box<Expr>,Box<Expr>),Linq(Box<Query>),Temporal(TemporalType,Vec<Expr>),Member(Box<Expr>,String),MemberCall(Box<Expr>,String,Vec<Expr>),StringType,Null,Bool(bool),Num(i64),Str(String),Var(String,Position),Binary(Box<Expr>,char,Box<Expr>)}
 
 #[derive(Clone, Debug)]
 pub struct Query {
@@ -99,7 +99,7 @@ enum QueryStep {
 #[derive(Clone, Copy, Debug)]
 enum Aggregate { Count, Sum }
 
-enum Stmt{Deconstruct(Vec<String>, Expr), SetTupleField(String, String, Expr), StorePointer(Expr, Expr), Unsafe(Vec<LocatedStmt>), If(Condition, Vec<LocatedStmt>, Vec<LocatedStmt>), While(Condition, Vec<LocatedStmt>), Break, SetIndex(Expr,Expr,Expr),Let(String,Expr,Option<Ty>),Assign(String,Expr),Print(Expr),ReadLine,Throw(Expr),Try{body:Vec<LocatedStmt>,catch_name:Option<String>,catch_body:Option<Vec<LocatedStmt>>,finally_body:Option<Vec<LocatedStmt>>}}
+enum Stmt{Return(Expr), Deconstruct(Vec<String>, Expr), SetTupleField(String, String, Expr), StorePointer(Expr, Expr), Unsafe(Vec<LocatedStmt>), If(Condition, Vec<LocatedStmt>, Vec<LocatedStmt>), While(Condition, Vec<LocatedStmt>), Break, SetIndex(Expr,Expr,Expr),Let(String,Expr,Option<Ty>),Assign(String,Expr),Print(Expr),ReadLine,Throw(Expr),Try{body:Vec<LocatedStmt>,catch_name:Option<String>,catch_body:Option<Vec<LocatedStmt>>,finally_body:Option<Vec<LocatedStmt>>}}
 pub fn lex(src: &str) -> Result<Vec<Tok>, String> {
     lex_with_lines(src).map(|(tokens, _)| tokens)
 }
@@ -114,15 +114,15 @@ struct Condition {
     comparison: Option<(String, Expr)>,
 }
 
-#[derive(Clone)]
-struct CHeaderUsage {
+#[derive(Clone, Debug)]
+pub(crate) struct CHeaderUsage {
     name: String,
     alias: Option<String>,
 }
 
-struct Parser { t: Vec<Tok>, lines: Vec<Position>, i: usize, loop_depth: usize, in_unsafe: bool, c_headers: Vec<CHeaderUsage> }
+struct Parser { t: Vec<Tok>, lines: Vec<Position>, i: usize, loop_depth: usize, in_unsafe: bool, allow_return: bool, external_scope: String, local_functions: std::collections::BTreeSet<String>, c_headers: Vec<CHeaderUsage> }
 impl Parser{
- fn new(t: Vec<Tok>, lines: Vec<Position>) -> Self { Self { t, lines, i: 0, loop_depth: 0, in_unsafe: false, c_headers: Vec::new() } }
+ fn new(t: Vec<Tok>, lines: Vec<Position>) -> Self { Self { t, lines, i: 0, loop_depth: 0, in_unsafe: false, allow_return: false, external_scope: String::new(), local_functions: Default::default(), c_headers: Vec::new() } }
  fn peek(&self)->&Tok{&self.t[self.i]}
  fn next(&mut self)->Tok{let t=self.peek().clone();if t!=Tok::Eof{self.i+=1;}t}
  fn sym(&mut self,c:char)->bool{if *self.peek()==Tok::Sym(c){self.next();true}else{false}}
@@ -135,7 +135,7 @@ impl Parser{
      let expr = match self.next() {
          Tok::Num(n) => Expr::Num(n),
          Tok::Str(s) => Expr::Str(s),
-         Tok::Interpolated(parts) => interpolation::parse(parts, position, &self.c_headers, self.in_unsafe)?,
+         Tok::Interpolated(parts) => interpolation::parse(parts, position, self)?,
          Tok::Ident(alias) if self.c_headers.iter().any(|header| header.alias.as_deref() == Some(&alias))
              && self.sym('.') =>
          {
@@ -144,7 +144,7 @@ impl Parser{
              self.expect('(')?;
              let path = self.expr(0)?;
              self.expect(')')?;
-             Expr::NativeFileRoundTrip(Some(alias), name, Box::new(path))
+             Expr::NativeFileRoundTrip(self.external_alias(Some(alias)), name, Box::new(path))
          }
          Tok::Ident(s) if s == "CFile" && self.sym('.') => {
              self.require_c_header(position)?;
@@ -154,7 +154,7 @@ impl Parser{
              self.expect('(')?;
              let path = self.expr(0)?;
              self.expect(')')?;
-             Expr::NativeFileRoundTrip(None, name, Box::new(path))
+             Expr::NativeFileRoundTrip(self.external_alias(None), name, Box::new(path))
          }
          Tok::Ident(s) if s == "Stopwatch" && self.sym('.') => {
              match self.name()?.as_str() {
@@ -179,12 +179,23 @@ impl Parser{
          }
          Tok::Ident(s) if s == "null" => Expr::Null,
          Tok::Ident(s) if s == "true" || s == "false" => Expr::Bool(s == "true"),
+         Tok::Ident(s) if self.local_functions.contains(&s) && self.sym('(') => {
+             let mut args = Vec::new();
+             if !self.sym(')') {
+                 loop {
+                     args.push(self.expr(0)?);
+                     if !self.sym(',') { break; }
+                 }
+                 self.expect(')')?;
+             }
+             Expr::LocalCall(s, args)
+         }
          Tok::Ident(s) if self.sym('(') => {
              self.require_c_header(position)?;
              self.require_unsafe(position)?;
              let path = self.expr(0)?;
              self.expect(')')?;
-             Expr::NativeFileRoundTrip(None, s, Box::new(path))
+             Expr::NativeFileRoundTrip(self.external_alias(None), s, Box::new(path))
          }
          Tok::Ident(s) => Expr::Var(s,position),
          Tok::Sym('&') => {
@@ -301,14 +312,30 @@ impl Parser{
      Ok(Condition { left, comparison })
  }
 
+ fn external_alias(&self, alias: Option<String>) -> Option<String> {
+     if self.external_scope.is_empty() {
+         alias
+     } else {
+         Some(format!("{}{}", self.external_scope, alias.as_deref().unwrap_or("")))
+     }
+ }
+
  fn exception_block(&mut self) -> Result<Vec<LocatedStmt>, String> {
      let outer_depth = std::mem::take(&mut self.loop_depth);
+     let can_return = std::mem::take(&mut self.allow_return);
      let body = self.block();
      self.loop_depth = outer_depth;
+     self.allow_return = can_return;
      body
  }
 
  fn statement_kind(&mut self)->Result<Stmt,String>{
+  if self.word("return") {
+      if !self.allow_return { return Err("CSX2511: return is not permitted in this block".into()); }
+      let value = self.expr(0)?;
+      self.expect(';')?;
+      return Ok(Stmt::Return(value));
+  }
   if self.word("unsafe") {
       let was_unsafe = std::mem::replace(&mut self.in_unsafe, true);
       let body = self.block();
@@ -546,7 +573,7 @@ impl Parser{
   if self.word("public"){}if self.word("static"){}if !self.word("void"){return Err("CSX1108: expected void Main".into())}if !self.word("Main"){return Err("CSX1109: expected Main".into())}self.expect('(')?;self.expect(')')?;let v=self.block()?;while self.sym('}'){}if self.peek()!=&Tok::Eof{return Err("CSX1110: trailing tokens".into())}Ok(v)
  }
 }
-#[derive(Clone,PartialEq)]pub(crate) enum Ty{Tuple(Vec<tuples::Field>),Int,Str,Bool,Pointer(Pointee),Temporal(TemporalType),Array(arrays::Element)}
+#[derive(Clone,PartialEq)]pub(crate) enum Ty{LocalFunction(Vec<Ty>, Box<Ty>),DllApi(crate::abi::Contract),Object(String, std::collections::BTreeMap<String, (String, Ty)>),Tuple(Vec<tuples::Field>),Int,Str,Bool,Pointer(Pointee),Temporal(TemporalType),Array(arrays::Element)}
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Pointee {
     Int,
@@ -567,7 +594,20 @@ const POINTER_ACCESS_MARKER: &str = r#"/*"CSharpX pointer access"*/"#;
 pub(crate) const C_HEADER_USAGE_PREFIX: &str = r#"/*"CSharpX header usage" "#;
 pub(crate) const C_FILE_CALL_PREFIX: &str = r#"/*"CSharpX C file bridge" "#;
 
-fn emit_expr(e:&Expr,vars:&std::collections::BTreeMap<String,Ty>)->Result<(String,Ty),String>{match e{
+pub(crate) fn emit_expr(e:&Expr,vars:&std::collections::BTreeMap<String,Ty>)->Result<(String,Ty),String>{match e{
+ Expr::LocalCall(name, args) => {
+     let Some(Ty::LocalFunction(parameters, result)) = vars.get(&format!("\0fn:{name}")) else {
+         return Err(format!("CSX2511: unknown helper {name}"));
+     };
+     if parameters.len() != args.len() { return Err(format!("CSX2511: wrong argument count for {name}")); }
+     let mut values = Vec::new();
+     for (arg, expected) in args.iter().zip(parameters) {
+         let (value, actual) = emit_expr(arg, vars)?;
+         if &actual != expected { return Err(format!("CSX2511: incompatible argument type for {name}")); }
+         values.push(value);
+     }
+     Ok((format!("csx_helper_{name}({})?", values.join(", ")), result.as_ref().clone()))
+ }
  Expr::Tuple(elements) => tuples::emit(elements, vars),
  Expr::AddressOf(name, position) => {
      let target = match vars.get(name) {
@@ -599,10 +639,29 @@ fn emit_expr(e:&Expr,vars:&std::collections::BTreeMap<String,Ty>)->Result<(Strin
  Expr::Index(array,index)=>arrays::get(array,index,vars),
  Expr::Temporal(ty,args)=>temporal::constructor(*ty,args,vars),
  Expr::Member(receiver,member)=>tuples::member(receiver,member,vars),
- Expr::MemberCall(receiver,member,args)=>strings::call(receiver,member,args,vars),
+ Expr::MemberCall(receiver,member,args)=>{
+     if let Expr::Var(name, position) = receiver.as_ref() {
+         if let Some(Ty::DllApi(contract)) = vars.get(name) {
+             return contract.emit_call(member, args, vars).map_err(|error| position.annotate(error));
+         }
+         if let Some(Ty::Object(_, methods)) = vars.get(name) {
+             let (dispatch, ty) = methods.get(member).filter(|_| args.is_empty()).ok_or_else(|| {
+                 position.annotate(format!("CSX2305: no matching parameterless method {member} on {name}"))
+             })?;
+             let call = format!("v_{name}.{dispatch}()");
+             let code = match ty {
+                 Ty::Str => format!("{call}.to_owned()"),
+                 Ty::Temporal(_) => format!("{call}?"),
+                 _ => call,
+             };
+             return Ok((code, ty.clone()));
+         }
+     }
+     strings::call(receiver,member,args,vars)
+ },
  Expr::StringType | Expr::Null=>Err("CSX1502: String type and null require a supported String member call".into()),
  Expr::Bool(value)=>Ok((value.to_string(),Ty::Bool)),
- Expr::Linq(query)=>Ok((emit_query(query, vars)?,Ty::Int)), Expr::Num(n)=>Ok((format!("{n}i64"),Ty::Int)),Expr::Str(s)=>Ok((format!("{:?}.to_string()",s),Ty::Str)),Expr::Var(n,position)=>{let t=vars.get(n).ok_or_else(||position.annotate(format!("CSX1201: unknown variable {n}")))?;Ok((format!("v_{n}.clone()"),t.clone()))},Expr::Binary(a,op,b)=>{let (aa,at)=emit_expr(a,vars)?;let (bb,bt)=emit_expr(b,vars)?;if *op == '+' && (at == Ty::Str || bt == Ty::Str) && !matches!((&at, &bt), (Ty::Array(_), _) | (_, Ty::Array(_))) {
+ Expr::Linq(query)=>Ok((emit_query(query, vars)?,Ty::Int)), Expr::Num(n)=>Ok((format!("{n}i64"),Ty::Int)),Expr::Str(s)=>Ok((format!("{:?}.to_string()",s),Ty::Str)),Expr::Var(n,position)=>{let t=vars.get(n).ok_or_else(||position.annotate(format!("CSX1201: unknown variable {n}")))?;if matches!(t, Ty::Object(..) | Ty::DllApi(_)) { return Err(position.annotate("CSX2307: use a getter to read a scalar value from a class instance")); } Ok((format!("v_{n}.clone()"),t.clone()))},Expr::Binary(a,op,b)=>{let (aa,at)=emit_expr(a,vars)?;let (bb,bt)=emit_expr(b,vars)?;if *op == '+' && (at == Ty::Str || bt == Ty::Str) && !matches!((&at, &bt), (Ty::Array(_), _) | (_, Ty::Array(_))) {
     let a = display_expression(aa, at);
     let b = display_expression(bb, bt);
     return Ok((format!("format!(\"{{}}{{}}\", {a}, {b})"), Ty::Str));
@@ -720,6 +779,11 @@ fn emit_stmts(stmts:&[LocatedStmt],vars:&mut std::collections::BTreeMap<String,T
     mappings.push((out.len(), statement.position.line));
     (|| -> Result<(), String> {
     match &statement.kind {
+ Stmt::Return(value) => {
+     let (code, ty) = emit_expr(value, vars)?;
+     if vars.get("\0return") != Some(&ty) { return Err("CSX2511: incompatible return type".into()); }
+     out.push_str(&format!("{pad}return Ok({code});\n"));
+ }
  Stmt::Deconstruct(names, expr) => tuples::deconstruct(names, expr, vars, out, &pad)?,
  Stmt::SetTupleField(name, field, expr) => tuples::assign_field(name, field, expr, vars, out, &pad)?,
  Stmt::StorePointer(pointer, value) => {
@@ -803,11 +867,77 @@ pub fn compile_with_lines(src: &str) -> Result<(String, Vec<u32>), String> {
     strings::append_runtime(&mut out);
     arrays::append_runtime(&mut out);
     append_clock_runtime(&mut out);
-    for header in parser.c_headers {
-        let scope = header.alias.as_deref().unwrap_or("");
-        out.push_str(&format!("{C_HEADER_USAGE_PREFIX}{scope}|{}*/\n", header.name));
-    }
+    append_c_imports(&mut out, &parser.c_headers);
     Ok((out, line_map))
+}
+
+pub(crate) fn append_c_imports(out: &mut String, imports: &[CHeaderUsage]) {
+    append_scoped_imports(out, imports, "");
+}
+
+pub(crate) fn append_scoped_imports(out: &mut String, imports: &[CHeaderUsage], prefix: &str) {
+    for header in imports {
+        let scope = header.alias.as_deref().unwrap_or("");
+        out.push_str(&format!("{C_HEADER_USAGE_PREFIX}{prefix}{scope}|{}*/\n", header.name));
+    }
+}
+
+pub(crate) fn read_file_import(tokens: &[Tok], imports: &mut Vec<CHeaderUsage>) -> Result<usize, String> {
+    let end = tokens.iter().position(|token| *token == Tok::Sym(';'))
+        .ok_or("CSX1707: missing ';' after file import")?;
+    let mut input = vec![Tok::Ident("using".into())];
+    input.extend_from_slice(&tokens[..=end]);
+    input.push(Tok::Eof);
+    let lines = vec![Position::START; input.len()];
+    let mut parser = Parser::new(input, lines);
+    parser.c_headers = imports.clone();
+    parser.read_imports()?;
+    *imports = parser.c_headers;
+    Ok(end + 1)
+}
+
+pub(crate) fn scalar_statement_length(tokens: &[Tok], imports: &[CHeaderUsage]) -> Result<usize, String> {
+    let lines = vec![Position::START; tokens.len()];
+    let mut parser = Parser::new(tokens.to_vec(), lines);
+    parser.c_headers = imports.to_vec();
+    parser.stmt()?;
+    Ok(parser.i)
+}
+
+pub(crate) fn function_imports(tokens: &[Tok]) -> Result<(usize, Vec<CHeaderUsage>), String> {
+    let mut parser = Parser::new(tokens.to_vec(), vec![Position::START; tokens.len()]);
+    parser.read_imports()?;
+    Ok((parser.i, parser.c_headers))
+}
+
+pub(crate) fn emit_function_body(
+    mut tokens: Vec<Tok>,
+    mut vars: std::collections::BTreeMap<String, Ty>,
+    result: Ty,
+    imports: &[CHeaderUsage],
+    scope: &str,
+    out: &mut String,
+) -> Result<(), String> {
+    tokens.push(Tok::Eof);
+    let lines = vec![Position::START; tokens.len()];
+    let mut parser = Parser::new(tokens, lines);
+    parser.c_headers = imports.to_vec();
+    parser.external_scope = scope.to_owned();
+    parser.allow_return = true;
+    parser.local_functions = vars.keys().filter_map(|name| name.strip_prefix("\0fn:").map(str::to_owned)).collect();
+    let body = parser.block()?;
+    if parser.peek() != &Tok::Eof { return Err("CSX2511: unexpected tokens after function".into()); }
+    vars.insert("\0return".to_owned(), result);
+    emit_stmts(&body, &mut vars, out, &mut Vec::new(), 1)?;
+    append_scoped_imports(out, imports, scope);
+    Ok(())
+}
+
+pub(crate) fn append_function_runtimes(out: &mut String) {
+    temporal::append_runtime(out);
+    strings::append_runtime(out);
+    arrays::append_runtime(out);
+    append_clock_runtime(out);
 }
 
 pub(crate) fn append_clock_runtime(out: &mut String) {
@@ -822,7 +952,15 @@ pub(crate) fn append_clock_runtime(out: &mut String) {
 }
 
 // Scalar statements in an object-path Main use the same parser and emitter.
-pub(crate) fn emit_constant_expression(mut tokens: Vec<Tok>, required: Ty) -> Result<String, String> {
+pub(crate) fn emit_constant_expression(tokens: Vec<Tok>, required: Ty) -> Result<String, String> {
+    emit_typed_expression(tokens, required, &Default::default())
+}
+
+pub(crate) fn emit_typed_expression(
+    mut tokens: Vec<Tok>,
+    required: Ty,
+    vars: &std::collections::BTreeMap<String, Ty>,
+) -> Result<String, String> {
     tokens.push(Tok::Eof);
     let lines = vec![Position::START; tokens.len()];
     let mut parser = Parser::new(tokens, lines);
@@ -830,7 +968,7 @@ pub(crate) fn emit_constant_expression(mut tokens: Vec<Tok>, required: Ty) -> Re
     if parser.peek() != &Tok::Eof {
         return Err("CSX1110: trailing tokens in return expression".into());
     }
-    let (code, kind) = emit_expr(&expression, &Default::default())?;
+    let (code, kind) = emit_expr(&expression, vars)?;
     if kind != required {
         return Err("CSX2104: return expression has the wrong type".into());
     }
@@ -841,11 +979,13 @@ pub(crate) fn emit_scalar_statement(
     mut tokens: Vec<Tok>,
     vars: &mut std::collections::BTreeMap<String, Ty>,
     object_names: &std::collections::BTreeSet<String>,
+    imports: &[CHeaderUsage],
     out: &mut String,
 ) -> Result<(), String> {
     tokens.push(Tok::Eof);
     let lines = vec![Position::START; tokens.len()];
     let mut parser = Parser::new(tokens, lines);
+    parser.c_headers = imports.to_vec();
     let statement = parser.stmt()?;
     if let Stmt::Let(name, _, _) = &statement.kind {
         if object_names.contains(name) {

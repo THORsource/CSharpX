@@ -1,0 +1,18 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>74025189-c934-4f27-b98f-ffb29e54a940</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="..\Configuration.csx" Link="Configuration.csx" />
+    <CSharpXCompile Include="Decorate.csx" />
+    <CSharpXCompile Include="..\..\..\c-file-access\main.c" Link="Native\main.c" />
+    <CSharpXCompile Include="..\..\..\c-file-access\c_file_access.h" Link="Native\c_file_access.h" />
+    <CSharpXAbiExport Include="Describe.csx" />
+    <None Include="Describe.csx" />
+  </ItemGroup>
+  <Import Project="..\..\..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+  <Import Project="..\..\..\c-file-access\CSharpX.NativeFile.targets" />
+</Project>

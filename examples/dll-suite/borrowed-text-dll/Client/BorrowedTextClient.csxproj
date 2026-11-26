@@ -1,0 +1,14 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>b1fd879b-1a22-4e91-a660-2c4ac0e24a8d</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <CSharpXAbiBorrow>true</CSharpXAbiBorrow>
+  </PropertyGroup>
+  <ItemGroup>
+    <CSharpXCompile Include="..\..\typed-text-dll\Client\Program.csx" Link="Program.csx" />
+    <CSharpXCompile Include="..\..\typed-text-dll\Configuration.csx" Link="Configuration.csx" />
+    <CSharpXAbiReference Include="..\Library\bin\$(Configuration)\BorrowedTextRules.dll" />
+  </ItemGroup>
+  <Import Project="..\..\..\..\ide\visual-studio-2022\MSBuild\CSharpX.Project.targets" />
+</Project>

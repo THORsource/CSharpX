@@ -27,5 +27,7 @@
                 Description="Bettet zusätzlich die .NET-9-Laufzeit ein. Erfordert Einzeldatei und Windows x64." />
   <StringProperty Name="StartupObject" DisplayName="Startobjekt" Category="Output"
                   Description="Name der Klasse mit der statischen Main-Methode. Bei genau einem Einstiegspunkt kann das Feld leer bleiben." />
+  <StringProperty Name="CSharpXOutputFile" DisplayName="Ausgabedatei" Category="Output"
+                  Description="Optionaler Dateiname inklusive Erweiterung, z. B. Demo.exe oder Regeln.dll." />
   <StringProperty Name="AssemblyName" DisplayName="Dateiname ohne Erweiterung" Category="Output" />
 </Rule>
